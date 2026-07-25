@@ -1,0 +1,21 @@
+# Rebuilt inside the image — never copy the host's versions in.
+node_modules
+dist
+
+# Local state / secrets — must not leak into the image.
+data
+.env
+.env.local
+.env.*.local
+
+# VCS / editor / OS noise
+.git
+.gitignore
+.DS_Store
+**/.DS_Store
+*.log
+npm-debug.log*
+
+# Docs / infra not needed at build time
+README.md
+ecosystem.config.cjs

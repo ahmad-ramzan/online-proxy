@@ -1,0 +1,6 @@
+{
+  "name": "ProxyGPT Online",
+  "description": "Premium Proxy Selling Website with elegant glassmorphism dashboard, real-time usage metrics, and modular payment & proxy integration layers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
