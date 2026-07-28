@@ -516,12 +516,13 @@ app.get('/api/proxy/residential/geo', authenticateToken, async (req, res) => {
 app.get('/api/proxy/usage', authenticateToken, async (req, res) => {
   const orders = dbInstance.getOrders().filter(o => o.userId === req.user!.id && o.status === 'active');
   const { live, usage } = await ResidentialService.getSubUserUsage();
-  const GB = 1024 * 1024 * 1024;
+  const GB = 1000 * 1000 * 1000; // decimal: 1 GB = 1000 MB, matches what we sell
   let usedBytes = 0, limitBytes = 0;
   const perOrder = orders.map(o => {
     const u = o.subUserPackageKey ? usage[o.subUserPackageKey] : undefined;
     const ub = u ? u.usedBytes : 0;
-    const lb = u ? u.limitBytes : Math.round(o.bandwidthGb * GB);
+    // Limit is the ordered amount in decimal GB, not Proxy-Seller's 1-GiB reservation.
+    const lb = Math.round(o.bandwidthGb * GB);
     usedBytes += ub;
     limitBytes += lb;
     return {
@@ -563,7 +564,8 @@ app.post('/api/proxy/create', authenticateToken, async (req, res) => {
   if (order.subUserPackageKey) {
     const { live, usage } = await ResidentialService.getSubUserUsage();
     const u = live ? usage[order.subUserPackageKey] : undefined;
-    if (u && u.limitBytes > 0 && u.usedBytes >= u.limitBytes) {
+    const limitBytes = Math.round(order.bandwidthGb * 1000 * 1000 * 1000); // decimal GB
+    if (u && u.usedBytes >= limitBytes) {
       return res.status(400).json({
         error: 'This plan has no bandwidth left. Please purchase a refill to create new proxies.'
       });
@@ -1133,6 +1135,11 @@ app.delete('/api/admin/support/:id', authenticateToken, requireAdmin, (req, res)
 // ---------------------------------------------------------------------------
 const ENFORCE_INTERVAL_MS = 60 * 1000;
 
+// We sell bandwidth in DECIMAL gigabytes: 1 GB = 1000 MB = 1,000,000,000 bytes
+// (not the 1 GiB / 1024 MB that Proxy-Seller reserves internally). The cutoff is
+// therefore computed from the order, so a "1 GB" plan stops at exactly 1000 MB.
+const BYTES_PER_GB = 1000 * 1000 * 1000;
+
 export async function enforceBandwidthLimits(): Promise<void> {
   const { live, usage } = await ResidentialService.getSubUserUsage();
   // Never revoke on an unverified snapshot — a transient API failure must not
@@ -1145,8 +1152,9 @@ export async function enforceBandwidthLimits(): Promise<void> {
 
   for (const order of activeOrders) {
     const u = usage[order.subUserPackageKey!];
-    if (!u || u.limitBytes <= 0) continue;
-    if (u.usedBytes < u.limitBytes) continue;
+    if (!u) continue;
+    const limitBytes = Math.round(order.bandwidthGb * BYTES_PER_GB);
+    if (u.usedBytes < limitBytes) continue;
 
     const proxies = dbInstance.getProxies().filter(p => p.orderId === order.id);
     for (const p of proxies) {
@@ -1164,8 +1172,8 @@ export async function enforceBandwidthLimits(): Promise<void> {
     dbInstance.log(
       'warning',
       'proxy',
-      `Bandwidth exhausted for order ${order.id} (${Math.round(u.usedBytes / 1048576)}MB of ` +
-        `${Math.round(u.limitBytes / 1048576)}MB) — ${proxies.length} proxy(ies) revoked.`
+      `Bandwidth exhausted for order ${order.id} (${Math.round(u.usedBytes / 1e6)}MB of ` +
+        `${Math.round(limitBytes / 1e6)}MB) — ${proxies.length} proxy(ies) revoked.`
     );
   }
 }

@@ -68,7 +68,8 @@ export default function CreateProxy({ orders, onProxyCreated, pinnedCountries }:
   const formatGbLeft = (ord: ProxyOrder) => {
     const u = usageByOrder[ord.id];
     const leftGb = u ? Math.max(0, u.limitGb - u.usedGb) : ord.bandwidthGb - ord.bandwidthUsedGb;
-    return leftGb < 1 ? `${Math.round(leftGb * 1024)} MB` : `${Math.round(leftGb * 100) / 100} GB`;
+    // Decimal: 1 GB = 1000 MB, matching how bandwidth is sold and enforced.
+    return leftGb < 1 ? `${Math.round(leftGb * 1000)} MB` : `${Math.round(leftGb * 100) / 100} GB`;
   };
 
   // Load residential locations once

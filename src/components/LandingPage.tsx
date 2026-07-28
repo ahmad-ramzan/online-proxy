@@ -78,7 +78,7 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
 
   const formatGb = (bytes: number | null | undefined): string | null => {
     if (bytes === null || bytes === undefined) return null;
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    return `${(bytes / 1e9).toFixed(1)} GB`; // decimal GB (1 GB = 1000 MB)
   };
 
   // Card price is the fixed package price set by the admin.

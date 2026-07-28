@@ -277,7 +277,8 @@ export class PaymentService {
     try {
       const order = db.getOrders().find(o => o.id === txn.orderId);
       if (order && !order.subUserPackageKey) {
-        const trafficBytes = Math.round(order.bandwidthGb * 1024 * 1024 * 1024);
+        // Reserve in decimal GB (1 GB = 1000 MB) to match what the customer buys.
+        const trafficBytes = Math.round(order.bandwidthGb * 1000 * 1000 * 1000);
         const sub = await ResidentialService.createSubUserPackage({ trafficBytes });
         db.updateOrder(order.id, { subUserPackageKey: sub.packageKey });
         db.log(
