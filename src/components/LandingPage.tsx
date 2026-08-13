@@ -682,6 +682,24 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
               <li>
                 <a
                   href="#"
+                  onClick={(e) => { e.preventDefault(); onNavigate('refund-policy'); }}
+                  className="hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Return &amp; Refund Policy
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); onNavigate('technical-compliance'); }}
+                  className="hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Technical &amp; Compliance
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#"
                   onClick={(e) => { e.preventDefault(); onNavigate('contact-support'); }}
                   className="hover:text-blue-400 transition-colors cursor-pointer"
                 >
@@ -718,6 +736,20 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
               className="hover:text-white transition-colors cursor-pointer"
             >
               Terms of Service
+            </a>
+            <a
+              href="#"
+              onClick={(e) => { e.preventDefault(); onNavigate('refund-policy'); }}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Refund Policy
+            </a>
+            <a
+              href="#"
+              onClick={(e) => { e.preventDefault(); onNavigate('technical-compliance'); }}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Compliance
             </a>
             <a
               href="#"

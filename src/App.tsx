@@ -8,7 +8,7 @@ import {
   Shield, Server, Key, LayoutDashboard, Compass, Lock,
   Loader2, LogOut, Code, AlertTriangle, Users, Database, ArrowLeft, Globe, Zap,
   HelpCircle, PlayCircle, Menu, X, Megaphone, Pin, Tag, Bell, ChevronDown, Settings,
-  Edit2, Save, Image
+  Edit2, Save, Image, ExternalLink
 } from 'lucide-react';
 import { User, ProxyPackage, CreatedProxy, ProxyOrder, PaymentTransaction } from './types';
 import { api } from './services/api';
@@ -31,6 +31,15 @@ function toYouTubeEmbed(url: string): string | null {
     || u.match(/^([A-Za-z0-9_-]{11})$/);
   return m ? `https://www.youtube.com/embed/${m[1]}` : null;
 }
+
+const complianceRows = [
+  { label: 'Live Website/App URL', value: 'https://proxygpt.online' },
+  { label: 'IP Address (Web/App Server)', value: 'Domain-based hosting for proxygpt.online; server IP may vary by deployment or CDN routing.' },
+  { label: 'Privacy Policy & Data Security URL', value: 'https://proxygpt.online/privacy-policy', href: 'https://proxygpt.online/privacy-policy' },
+  { label: 'Return-Refund Policy URL', value: 'https://proxygpt.online/refund-policy', href: 'https://proxygpt.online/refund-policy' },
+  { label: 'Is the Website/App currently Live?', value: 'Yes' },
+  { label: 'Is the primary transaction currency BDT?', value: 'Yes' }
+];
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -212,6 +221,20 @@ export default function App() {
           window.history.replaceState({}, '', '/');
         }
       }
+
+      // Deep-link support for public legal pages, so anyone (including payment
+      // gateway reviewers) can open them by direct URL — even while logged in.
+      const legalRoutes: Record<string, string> = {
+        '/privacy-policy': 'privacy-policy',
+        '/terms-of-service': 'terms-of-service',
+        '/terms': 'terms-of-service',
+        '/refund-policy': 'refund-policy',
+        '/refund': 'refund-policy',
+        '/technical-compliance': 'technical-compliance',
+        '/compliance': 'technical-compliance'
+      };
+      const path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
+      if (legalRoutes[path]) setPage(legalRoutes[path]);
     } catch (e) {
       console.error('Core initialize failed: ', e);
     } finally {
@@ -424,6 +447,13 @@ export default function App() {
             } else {
               setPage(pageId);
               setDashboardTab('overview');
+              const legalPaths: Record<string, string> = {
+                'privacy-policy': '/privacy-policy',
+                'terms-of-service': '/terms-of-service',
+                'refund-policy': '/refund-policy',
+                'technical-compliance': '/technical-compliance'
+              };
+              if (legalPaths[pageId]) window.history.pushState({}, '', legalPaths[pageId]);
             }
           }}
           onBuyPackage={openCheckout}
@@ -557,6 +587,114 @@ export default function App() {
 
               <h2 className="text-base font-bold text-white mt-4">Contact Support</h2>
               <p>If you have any questions about this Privacy Policy or your personal data, you can contact our support team at <span className="font-bold text-blue-400">admin@proxygpt.online</span>.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Return & Refund Policy Route */}
+      {page === 'refund-policy' && (
+        <div className="min-h-screen relative overflow-hidden flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 z-10 bg-slate-950">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-8 max-w-3xl w-full backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Shield className="w-6 h-6 text-blue-400" />
+                Return &amp; Refund Policy
+              </h1>
+              <button
+                onClick={() => { setPage('home'); window.history.pushState({}, '', '/'); }}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-xs font-bold text-slate-300 hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-2"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+              </button>
+            </div>
+
+            <div className="text-xs sm:text-sm text-slate-300 leading-relaxed space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar text-left">
+              <p>At Proxy GPT Online, we want every customer to be satisfied with our residential proxy services. This Return &amp; Refund Policy explains when a refund may be issued.</p>
+
+              <h2 className="text-base font-bold text-white mt-4">Nature of the Service</h2>
+              <p>Our proxy plans are digital services delivered instantly. Because bandwidth and proxy access are consumed as soon as a proxy is created, purchases are generally <span className="font-semibold text-white">non-refundable once the service has been delivered or activated</span>.</p>
+
+              <h2 className="text-base font-bold text-white mt-4">When a Refund May Be Granted</h2>
+              <p>A refund may be considered if <span className="font-semibold text-white">all</span> of the following apply:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>The service could not be provided due to a verified technical fault on our side.</li>
+                <li>No meaningful bandwidth has been consumed from the plan.</li>
+                <li>The request is made within <span className="font-semibold text-white">24 hours</span> of purchase.</li>
+              </ul>
+
+              <h2 className="text-base font-bold text-white mt-4">Non-Refundable Cases</h2>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Bandwidth has already been used (partially or fully).</li>
+                <li>The account was suspended or terminated for violating our Terms of Service.</li>
+                <li>Incorrect plan selected, or change of mind after activation.</li>
+                <li>Issues caused by the customer's own network, tools, or misuse.</li>
+              </ul>
+
+              <h2 className="text-base font-bold text-white mt-4">How to Request a Refund</h2>
+              <p>Email <span className="font-bold text-blue-400">admin@proxygpt.online</span> or open a support ticket from your dashboard with your account email, order ID, and a description of the issue. Eligible refunds are processed back to the original payment method within <span className="font-semibold text-white">7–10 business days</span>.</p>
+
+              <h2 className="text-base font-bold text-white mt-4">Currency</h2>
+              <p>Plans are priced in USD and charged in Bangladeshi Taka (BDT) via our payment provider. Refunds are issued in BDT at the applicable conversion rate.</p>
+
+              <h2 className="text-base font-bold text-white mt-4">Contact</h2>
+              <p>For any refund questions, contact our support team at <span className="font-bold text-blue-400">admin@proxygpt.online</span>.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Technical & Compliance Information Route */}
+      {page === 'technical-compliance' && (
+        <div className="min-h-screen relative overflow-hidden flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 z-10 bg-slate-950">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-8 max-w-3xl w-full backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Server className="w-6 h-6 text-blue-400" />
+                Technical &amp; Compliance Information
+              </h1>
+              <button
+                onClick={() => { setPage('home'); window.history.pushState({}, '', '/'); }}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-xs font-bold text-slate-300 hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-2"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+              </button>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/60">
+              {complianceRows.map((row) => (
+                <div key={row.label} className="grid grid-cols-1 sm:grid-cols-[260px_1fr] border-b border-slate-800 last:border-b-0">
+                  <div className="bg-slate-900/70 px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-300">
+                    {row.label}
+                  </div>
+                  <div className="px-4 py-3 text-sm text-slate-200 break-words">
+                    {row.href ? (
+                      <a
+                        href={row.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        {row.value}
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                      </a>
+                    ) : (
+                      row.value
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-xs sm:text-sm text-slate-300 leading-relaxed space-y-3 text-left">
+              <p>ProxyGPT Online is a live web application for residential proxy package purchases, account access, payment processing, and customer support.</p>
+              <p>Customer payment transactions are processed in Bangladeshi Taka (BDT). Package prices may be displayed in USD for comparison, then converted to BDT at checkout where applicable.</p>
             </div>
           </div>
         </div>
@@ -1053,10 +1191,18 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-                <div className="hidden sm:flex items-center gap-2.5 px-4 py-2 bg-slate-900 border border-slate-850 rounded-full">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-[10px] font-mono text-slate-300">SLA status: optimal</span>
-                </div>
+                {/* Quick IP-check: open ipgpt.net to see the assigned IP */}
+                <a
+                  href="https://ipgpt.net"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open ipgpt.net — check your IP"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-850 hover:border-blue-500/60 rounded-xl transition-colors cursor-pointer"
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span className="text-xs font-bold text-blue-400 font-mono hidden sm:block">ipgpt.net</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </a>
 
                 <div className="relative">
                   <button

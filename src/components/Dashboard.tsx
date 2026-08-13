@@ -299,6 +299,28 @@ export default function Dashboard({
             </div>
           </div>
 
+          {/* IP checker — verify your assigned IP before starting the survey */}
+          <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-4">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Globe className="w-4 h-4 text-blue-400" />
+              Check Your IP
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Before starting the survey, please check your IP by copying and pasting it into your browser.
+            </p>
+            <button
+              onClick={() => handleCopy('ipgpt', 'ipgpt.net')}
+              className="w-full flex items-center justify-between gap-3 bg-slate-950 border border-slate-850 hover:border-blue-500/60 rounded-2xl px-4 py-3 transition-all group cursor-pointer"
+            >
+              <span className="font-mono text-sm text-blue-400 group-hover:text-blue-300">ipgpt.net</span>
+              <span className="flex items-center gap-2 text-[11px] font-bold text-slate-400 group-hover:text-white">
+                {copiedId === 'ipgpt'
+                  ? <><Check className="w-3.5 h-3.5 text-green-400" /> Copied</>
+                  : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+              </span>
+            </button>
+          </div>
+
         </div>
 
       </div>

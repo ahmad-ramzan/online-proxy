@@ -45,6 +45,7 @@ export default function CreateProxy({ orders, onProxyCreated, pinnedCountries }:
   const [successProxy, setSuccessProxy] = useState<CreatedProxy | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [ipCopied, setIpCopied] = useState(false);
 
   // Real per-order bandwidth from Proxy-Seller, keyed by order id. The local
   // `bandwidthUsedGb` on an order is never updated, so it would always report
@@ -545,14 +546,31 @@ export default function CreateProxy({ orders, onProxyCreated, pinnedCountries }:
             </div>
           )}
 
-          <div className="p-5 bg-gradient-to-br from-indigo-900/10 to-purple-900/10 border border-indigo-500/20 rounded-2xl space-y-2">
+          <div className="p-5 bg-gradient-to-br from-indigo-900/10 to-purple-900/10 border border-indigo-500/20 rounded-2xl space-y-3">
             <h5 className="text-xs font-bold text-white flex items-center gap-1.5">
-              <RefreshCw className="w-4 h-4 text-purple-400" />
-              Dynamic Rotation
+              <Globe className="w-4 h-4 text-blue-400" />
+              Check Your IP
             </h5>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Sticky keeps one exit IP; a timer rotates it automatically. Rotation is applied on the list at creation time.
+              Before starting the survey, please check your IP by copying and pasting it into your browser.
             </p>
+            <button
+              type="button"
+              onClick={async () => {
+                if (await copyToClipboard('ipgpt.net')) {
+                  setIpCopied(true);
+                  setTimeout(() => setIpCopied(false), 2000);
+                }
+              }}
+              className="w-full flex items-center justify-between gap-3 bg-slate-950 border border-slate-850 hover:border-blue-500/60 rounded-xl px-4 py-2.5 transition-all group cursor-pointer"
+            >
+              <span className="font-mono text-sm text-blue-400 group-hover:text-blue-300">ipgpt.net</span>
+              <span className="flex items-center gap-2 text-[11px] font-bold text-slate-400 group-hover:text-white">
+                {ipCopied
+                  ? <><Check className="w-3.5 h-3.5 text-green-400" /> Copied</>
+                  : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+              </span>
+            </button>
           </div>
 
         </div>
