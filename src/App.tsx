@@ -225,6 +225,8 @@ export default function App() {
       // Deep-link support for public legal pages, so anyone (including payment
       // gateway reviewers) can open them by direct URL — even while logged in.
       const legalRoutes: Record<string, string> = {
+        '/about-us': 'about-us',
+        '/about': 'about-us',
         '/privacy-policy': 'privacy-policy',
         '/terms-of-service': 'terms-of-service',
         '/terms': 'terms-of-service',
@@ -448,6 +450,7 @@ export default function App() {
               setPage(pageId);
               setDashboardTab('overview');
               const legalPaths: Record<string, string> = {
+                'about-us': '/about-us',
                 'privacy-policy': '/privacy-policy',
                 'terms-of-service': '/terms-of-service',
                 'refund-policy': '/refund-policy',
@@ -695,6 +698,52 @@ export default function App() {
             <div className="text-xs sm:text-sm text-slate-300 leading-relaxed space-y-3 text-left">
               <p>ProxyGPT Online is a live web application for residential proxy package purchases, account access, payment processing, and customer support.</p>
               <p>Customer payment transactions are processed in Bangladeshi Taka (BDT). Package prices may be displayed in USD for comparison, then converted to BDT at checkout where applicable.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* About Us Route */}
+      {page === 'about-us' && (
+        <div className="min-h-screen relative overflow-hidden flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 z-10 bg-slate-950">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-8 max-w-3xl w-full backdrop-blur-xl shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Shield className="w-6 h-6 text-blue-400" />
+                About Us
+              </h1>
+              <button
+                onClick={() => { setPage('home'); window.history.pushState({}, '', '/'); }}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-850 border border-slate-800 text-xs font-bold text-slate-300 hover:text-white rounded-xl transition-all cursor-pointer flex items-center gap-2"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+              </button>
+            </div>
+
+            <div className="text-xs sm:text-sm text-slate-300 leading-relaxed space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar text-left">
+              <h2 className="text-base font-bold text-white">Business Information</h2>
+              <ul className="space-y-1.5">
+                <li><span className="text-slate-500">Business Name:</span> <span className="font-semibold text-white">Ryan Shoe Place</span></li>
+                <li><span className="text-slate-500">Online Service / Brand:</span> <span className="font-semibold text-white">ProxyGPT.online</span></li>
+                <li><span className="text-slate-500">Trade License No.:</span> <span className="font-semibold text-white">814</span></li>
+                <li>
+                  <span className="text-slate-500">Business Address:</span> Village/Road: Farakpur, Post Office: Taragunia – 7051,
+                  Upazila: Daulatpur, District: Kushtia, Country: Bangladesh
+                </li>
+                <li><span className="text-slate-500">Director:</span> <span className="font-semibold text-white">Md. Rasheduzzaman</span></li>
+                <li><span className="text-slate-500">Managing Director:</span> <span className="font-semibold text-white">Md. Rasel Sarker</span></li>
+              </ul>
+
+              <h2 className="text-base font-bold text-white mt-4">About ProxyGPT.online</h2>
+              <p>ProxyGPT.online is a proxy service platform providing reliable Residential and Mobile Proxy solutions for individuals, businesses, developers, freelancers, and online professionals.</p>
+              <p>Our Residential Proxies provide IP addresses associated with real residential networks, while our Mobile Proxies use mobile network IPs to provide reliable connectivity and flexible location-based access.</p>
+              <p>For users in Bangladesh, proxies can be useful for legitimate purposes such as market research, SEO, web development, software testing, advertising verification, online business operations, data research, and testing websites or services from different locations. They can also help businesses and developers work with international platforms when certain content or services are location-dependent.</p>
+              <p>Our goal is to provide Bangladeshi users with a reliable and easy-to-use proxy platform for legitimate online activities, with flexible plans and dependable service.</p>
+              <p>ProxyGPT.online does not support or promote illegal activities. Our services are intended for lawful and legitimate use only. Users are responsible for complying with applicable laws, website terms of service, and our acceptable-use policies.</p>
+              <p className="font-semibold text-white">Our mission is simple: reliable proxies, transparent service, and a better experience for every customer.</p>
             </div>
           </div>
         </div>

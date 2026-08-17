@@ -722,7 +722,14 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-slate-900/60 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
           <p>© 2026 ProxyGPT Online. All rights reserved. Raiyan Shoe Place, Trade License No. 814.</p>
-          <div className="flex gap-6 mt-4 sm:mt-0">
+          <div className="flex gap-6 mt-4 sm:mt-0 flex-wrap justify-center">
+            <a
+              href="#"
+              onClick={(e) => { e.preventDefault(); onNavigate('about-us'); }}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              About Us
+            </a>
             <a
               href="#"
               onClick={(e) => { e.preventDefault(); onNavigate('privacy-policy'); }}
