@@ -721,7 +721,7 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-slate-900/60 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
-          <p>© 2026 ProxyGPT Online. All rights reserved. Built with Sophisticated Dark Architecture.</p>
+          <p>© 2026 ProxyGPT Online. All rights reserved.</p>
           <div className="flex gap-6 mt-4 sm:mt-0">
             <a
               href="#"
