@@ -7,6 +7,7 @@ import { PaymentTransaction, ProxyOrder } from '../src/types';
 import { dbInstance } from './db';
 import { ResidentialService } from './residentialService';
 import { ZiniPayService } from './zinipayService';
+import { PayStationService } from './paystationService';
 
 /**
  * =========================================================================
@@ -55,9 +56,10 @@ export class PaymentService {
     userEmail: string;
     packageId: string;
     amountUsd: number;
-    gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card';
+    gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation';
     couponCode?: string;
     appUrl?: string;
+    custPhone?: string;
   }): Promise<{
     checkoutUrl: string;
     transactionId: string;
@@ -201,6 +203,35 @@ export class PaymentService {
       throw new Error(invoice.message || 'ZiniPay checkout could not be created.');
     }
 
+    // --- PayStation hosted checkout (bKash / Nagad / Rocket / card) ---
+    if (params.gateway === 'paystation' && PayStationService.isConfigured() && params.appUrl) {
+      const amountBdt = PayStationService.usdToBdt(finalUsd);
+      const invoiceNumber = txnId; // our txn id doubles as PayStation's invoice_number
+      const invoice = await PayStationService.createInvoice({
+        invoiceNumber,
+        name: params.userEmail.split('@')[0] || 'Customer',
+        phone: (params.custPhone || '').trim() || '01700000000',
+        email: params.userEmail,
+        address: 'Bangladesh',
+        amountBdt,
+        reference: newOrder.id,
+        callbackUrl: `${params.appUrl}/api/payment/paystation/callback`
+      });
+
+      if (invoice.ok && invoice.paymentUrl) {
+        // Store the invoice number so the callback can look this txn up.
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: invoiceNumber });
+        dbInstance.log('info', 'payment', `PayStation checkout ready: txn ${txnId}, amount BDT ${amountBdt}`);
+        return {
+          checkoutUrl: invoice.paymentUrl,
+          transactionId: txnId,
+          message: 'Redirecting to PayStation secure checkout.',
+          external: true
+        };
+      }
+      throw new Error(invoice.message || 'PayStation checkout could not be created.');
+    }
+
     // Return dummy URL that automatically allows testing completions in UI
     const checkoutUrl = `/checkout-simulation?transactionId=${txnId}&orderId=${newOrder.id}&amount=${finalUsd}&gateway=${params.gateway}`;
 
@@ -236,6 +267,30 @@ export class PaymentService {
     }
 
     dbInstance.updateTransaction(txn.id, { paymentMethod: verify.paymentMethod, providerTxnId: verify.transactionId });
+    const done = await this.completePaymentTransaction(txn.id);
+    return { ok: done, orderId: txn.orderId };
+  }
+
+  /**
+   * Confirms a PayStation payment by invoice number: verifies via
+   * /retrive-transaction (authoritative), then activates the order. Called from
+   * the callback route.
+   */
+  public static async completePayStationByInvoice(invoiceNumber: string, trxId?: string): Promise<{ ok: boolean; orderId?: string }> {
+    const txn = dbInstance.getTransactions().find(t => t.providerInvoiceId === invoiceNumber);
+    if (!txn) {
+      dbInstance.log('warning', 'payment', `PayStation callback: no transaction for invoice ${invoiceNumber}`);
+      return { ok: false };
+    }
+    if (txn.status === 'completed') return { ok: true, orderId: txn.orderId };
+
+    const verify = await PayStationService.verifyInvoice(invoiceNumber, trxId);
+    if (!verify.completed) {
+      dbInstance.log('warning', 'payment', `PayStation invoice ${invoiceNumber} not completed (trx_status=${verify.trxStatus ?? 'unknown'}).`);
+      return { ok: false, orderId: txn.orderId };
+    }
+
+    dbInstance.updateTransaction(txn.id, { paymentMethod: 'paystation', providerTxnId: verify.trxId });
     const done = await this.completePaymentTransaction(txn.id);
     return { ok: done, orderId: txn.orderId };
   }

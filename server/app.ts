@@ -615,10 +615,15 @@ app.delete('/api/proxy/revoke/:id', authenticateToken, async (req, res) => {
 
 // 4. PAYMENTS API
 app.post('/api/payment/create-session', authenticateToken, async (req, res) => {
-  const { packageId, gateway, amountUsd, couponCode } = req.body;
+  const { packageId, gateway, amountUsd, couponCode, custPhone } = req.body;
 
   if (!packageId || !gateway) {
     return res.status(400).json({ error: 'Missing required payment session keys.' });
+  }
+
+  // PayStation requires a customer phone number.
+  if (gateway === 'paystation' && !String(custPhone || '').trim()) {
+    return res.status(400).json({ error: 'A phone number is required for PayStation checkout.' });
   }
 
   try {
@@ -634,7 +639,8 @@ app.post('/api/payment/create-session', authenticateToken, async (req, res) => {
       amountUsd: parseFloat(amountUsd) || 0,
       gateway,
       couponCode: couponCode ? String(couponCode) : undefined,
-      appUrl: publicBaseUrl(req)
+      appUrl: publicBaseUrl(req),
+      custPhone: custPhone ? String(custPhone) : undefined
     });
 
     res.json(session);
@@ -706,6 +712,24 @@ const zinipayWebhook = async (req: express.Request, res: express.Response) => {
 };
 app.get('/api/payment/zinipay/webhook', zinipayWebhook);
 app.post('/api/payment/zinipay/webhook', zinipayWebhook);
+
+// PayStation redirects the customer here after checkout (invoice_number + trx_id
+// come back on the query string or body). We verify via /retrive-transaction,
+// activate the order, then bounce the browser to the dashboard.
+const paystationCallback = async (req: express.Request, res: express.Response) => {
+  const invoiceNumber = (req.query.invoice_number || req.body?.invoice_number) as string | undefined;
+  const trxId = (req.query.trx_id || req.body?.trx_id) as string | undefined;
+  if (!invoiceNumber) return res.redirect('/?checkout=pending');
+  let ok = false;
+  try {
+    ok = (await PaymentService.completePayStationByInvoice(invoiceNumber, trxId)).ok;
+  } catch (e: any) {
+    dbInstance.log('error', 'payment', `PayStation callback error: ${e.message}`);
+  }
+  res.redirect(ok ? '/?checkout=success' : '/?checkout=pending');
+};
+app.get('/api/payment/paystation/callback', paystationCallback);
+app.post('/api/payment/paystation/callback', paystationCallback);
 
 // Endpoint to simulate the callback of payment completion
 app.post('/api/payment/simulate-complete', authenticateToken, async (req, res) => {

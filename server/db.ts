@@ -96,11 +96,16 @@ const DEFAULT_DB: DatabaseSchema = {
     stripeSecretKey: 'sk_test_51Px2bX...',
     cryptoWalletAddress: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
     paypalClientId: 'AX_paypal_client_id_demo',
-    activeGateways: ['stripe', 'crypto', 'credit_card'],
+    activeGateways: ['stripe', 'crypto', 'credit_card', 'paystation'],
     // ZiniPay — sandbox key works out of the box; replace with your production Brand/API key.
     zinipayApiKey: 'sandbox_test_8f4c9a2e7b31',
     zinipayBaseUrl: 'https://api.zinipay.com',
-    zinipayUsdToBdt: 120
+    zinipayUsdToBdt: 120,
+    // PayStation — set Store ID + API password in Admin → Payment Settings.
+    paystationMerchantId: '',
+    paystationPassword: '',
+    paystationBaseUrl: 'https://api.paystation.com.bd',
+    paystationUsdToBdt: 120
   },
   websiteSettings: {
     siteName: 'ProxyGPT Online',

@@ -1090,6 +1090,59 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               </p>
             </div>
 
+            {/* PayStation — bKash / Nagad / Rocket / card (Bangladesh) */}
+            <div className="bg-slate-900/40 border border-slate-900 p-6 rounded-3xl space-y-4">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                PayStation (bKash / Nagad / Rocket / Card)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Store ID (Merchant ID)</label>
+                  <input
+                    type="text"
+                    placeholder="5615-XXXXXXXXXX"
+                    value={paymentSettings.paystationMerchantId || ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, paystationMerchantId: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">API Password</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={paymentSettings.paystationPassword || ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, paystationPassword: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">API Base URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://api.paystation.com.bd"
+                    value={paymentSettings.paystationBaseUrl || ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, paystationBaseUrl: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">USD → BDT rate</label>
+                  <input
+                    type="number"
+                    placeholder="120"
+                    value={paymentSettings.paystationUsdToBdt ?? ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, paystationUsdToBdt: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Get your <span className="text-slate-400">Store ID</span> and <span className="text-slate-400">API password</span> from the <a href="https://www.paystation.com.bd" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">PayStation merchant panel</a>. Packages are priced in USD; PayStation charges in BDT, converted using this rate.
+              </p>
+            </div>
+
             <button
               type="submit"
               className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 text-xs font-bold text-white rounded-xl shadow-lg shadow-blue-950/40 cursor-pointer"

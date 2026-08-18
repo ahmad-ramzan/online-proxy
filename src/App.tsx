@@ -342,7 +342,7 @@ export default function App() {
   };
 
   // Action: Initiate purchase & create session url
-  const handlePurchaseBandwidth = async (pkg: ProxyPackage, gatewaySelected: 'stripe' | 'crypto' | 'paypal' | 'credit_card' = 'stripe', couponCode?: string) => {
+  const handlePurchaseBandwidth = async (pkg: ProxyPackage, gatewaySelected: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' = 'stripe', couponCode?: string, custPhone?: string) => {
     if (!token) {
       // Redirect to login first
       setPage('login');
@@ -354,7 +354,8 @@ export default function App() {
         packageId: pkg.id,
         amountUsd: pkg.priceUsd,
         gateway: gatewaySelected,
-        couponCode: couponCode || undefined
+        couponCode: couponCode || undefined,
+        custPhone: custPhone || undefined
       });
 
       // External gateway (ZiniPay hosted checkout) — redirect the browser to it.
@@ -1756,10 +1757,10 @@ export default function App() {
           pkg={checkoutPkg}
           loading={actionLoading}
           onClose={() => setCheckoutPkg(null)}
-          onProceed={(couponCode) => {
+          onProceed={(couponCode, gateway, phone) => {
             const pkg = checkoutPkg;
             setCheckoutPkg(null);
-            handlePurchaseBandwidth(pkg, 'credit_card', couponCode);
+            handlePurchaseBandwidth(pkg, gateway, couponCode, phone);
           }}
         />
       )}

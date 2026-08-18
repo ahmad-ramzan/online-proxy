@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Tag, Loader2, Check, X, ArrowRight } from 'lucide-react';
+import { Tag, Loader2, Check, X, ArrowRight, Phone } from 'lucide-react';
 import { ProxyPackage } from '../types';
 import { api } from '../services/api';
 
@@ -12,13 +12,15 @@ interface CheckoutModalProps {
   pkg: ProxyPackage;
   loading: boolean;
   onClose: () => void;
-  onProceed: (couponCode: string) => void;
+  onProceed: (couponCode: string, gateway: 'credit_card' | 'paystation', phone: string) => void;
 }
 
 export default function CheckoutModal({ pkg, loading, onClose, onProceed }: CheckoutModalProps) {
   const [code, setCode] = useState('');
   const [checking, setChecking] = useState(false);
   const [applied, setApplied] = useState<{ valid: boolean; finalUsd?: number; discountUsd?: number; message: string } | null>(null);
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   const applyCoupon = async () => {
     const c = code.trim();
@@ -93,20 +95,43 @@ export default function CheckoutModal({ pkg, loading, onClose, onProceed }: Chec
           </p>
         )}
 
-        {/* Proceed */}
-        <button
-          type="button"
-          onClick={() => onProceed(applied?.valid ? code.trim() : '')}
-          disabled={loading}
-          className="w-full mt-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 disabled:opacity-50 rounded-xl font-bold text-sm text-white shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2 cursor-pointer transition-all"
-        >
-          {loading ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</>
-          ) : (
-            <>Pay ${finalPrice} <ArrowRight className="w-4 h-4" /></>
-          )}
-        </button>
-        <p className="text-[10px] text-slate-500 text-center mt-3">Secure payment via ZiniPay — bKash / Nagad / Card / Bangla QR.</p>
+        {/* Phone (required for PayStation) */}
+        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 mt-4">Phone number</label>
+        <div className="relative">
+          <Phone className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => { setPhone(e.target.value.replace(/[^0-9+]/g, '')); setPhoneError(''); }}
+            placeholder="01XXXXXXXXX"
+            className="w-full bg-slate-950 border border-slate-850 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+          />
+        </div>
+        {phoneError && <p className="text-[11px] text-red-400 mt-1.5">{phoneError}</p>}
+
+        {/* Payment method buttons */}
+        <div className="mt-5 space-y-2.5">
+          <button
+            type="button"
+            onClick={() => onProceed(applied?.valid ? code.trim() : '', 'credit_card', phone.trim())}
+            disabled={loading}
+            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 disabled:opacity-50 rounded-xl font-bold text-sm text-white shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2 cursor-pointer transition-all"
+          >
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} with ZiniPay <ArrowRight className="w-4 h-4" /></>}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!phone.trim()) { setPhoneError('Phone number is required for PayStation.'); return; }
+              onProceed(applied?.valid ? code.trim() : '', 'paystation', phone.trim());
+            }}
+            disabled={loading}
+            className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
+          >
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} with PayStation <ArrowRight className="w-4 h-4" /></>}
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-500 text-center mt-3">Secure payment via ZiniPay or PayStation — bKash / Nagad / Rocket / Card.</p>
       </div>
     </div>
   );

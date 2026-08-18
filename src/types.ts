@@ -93,7 +93,7 @@ export interface PaymentTransaction {
   userEmail: string;
   orderId: string;
   amountUsd: number;
-  gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card';
+  gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation';
   status: 'completed' | 'pending' | 'failed';
   createdAt: string;
   // ZiniPay (hosted checkout — Bangla QR / bKash / Nagad / card)
@@ -176,6 +176,11 @@ export interface PaymentSettings {
   zinipayApiKey?: string;
   zinipayBaseUrl?: string;
   zinipayUsdToBdt?: number; // conversion rate; ZiniPay charges in BDT, packages priced in USD
+  // PayStation (Bangladesh) — hosted checkout (bKash / Nagad / Rocket / card)
+  paystationMerchantId?: string; // "Store ID"
+  paystationPassword?: string;   // API password
+  paystationBaseUrl?: string;    // default https://api.paystation.com.bd
+  paystationUsdToBdt?: number;   // conversion rate (falls back to zinipayUsdToBdt)
 }
 
 export interface WebsiteSettings {
