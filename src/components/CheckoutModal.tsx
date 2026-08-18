@@ -128,7 +128,7 @@ export default function CheckoutModal({ pkg, loading, onClose, onProceed }: Chec
             disabled={loading}
             className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} with PayStation <ArrowRight className="w-4 h-4" /></>}
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} via BDT Payment <ArrowRight className="w-4 h-4" /></>}
           </button>
         </div>
       </div>
