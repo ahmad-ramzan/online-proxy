@@ -1058,10 +1058,26 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
             {/* ZiniPay — Bangla QR / bKash / Nagad / card (powers "Pay with Card / Bangla QR") */}
             <div className="bg-slate-900/40 border border-emerald-500/20 p-6 rounded-3xl space-y-4">
-              <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                <Lock className="w-4 h-4 text-emerald-400" />
-                ZiniPay (Bangla QR / bKash / Nagad)
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-emerald-400" />
+                  ZiniPay (Bangla QR / bKash / Nagad)
+                </h4>
+                {/* Show/hide the ZiniPay button at checkout */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentSettings({ ...paymentSettings, zinipayEnabled: !paymentSettings.zinipayEnabled })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${paymentSettings.zinipayEnabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                  title={paymentSettings.zinipayEnabled ? 'ZiniPay button is SHOWN at checkout' : 'ZiniPay button is HIDDEN at checkout'}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${paymentSettings.zinipayEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400">
+                {paymentSettings.zinipayEnabled
+                  ? 'The "Pay with ZiniPay" button is visible to customers at checkout.'
+                  : 'The "Pay with ZiniPay" button is hidden — customers only see BDT Payment (PayStation).'}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-slate-500 uppercase block">ZiniPay API Key (Brand Key)</label>

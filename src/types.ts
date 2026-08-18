@@ -176,6 +176,7 @@ export interface PaymentSettings {
   zinipayApiKey?: string;
   zinipayBaseUrl?: string;
   zinipayUsdToBdt?: number; // conversion rate; ZiniPay charges in BDT, packages priced in USD
+  zinipayEnabled?: boolean; // show/hide the "Pay with ZiniPay" button at checkout
   // PayStation (Bangladesh) — hosted checkout (bKash / Nagad / Rocket / card)
   paystationMerchantId?: string; // "Store ID"
   paystationPassword?: string;   // API password

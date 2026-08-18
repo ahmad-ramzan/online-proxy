@@ -101,6 +101,7 @@ const DEFAULT_DB: DatabaseSchema = {
     zinipayApiKey: 'sandbox_test_8f4c9a2e7b31',
     zinipayBaseUrl: 'https://api.zinipay.com',
     zinipayUsdToBdt: 127,
+    zinipayEnabled: false, // hidden by default; toggle from Admin -> Payment Settings
     // PayStation — set Store ID + API password in Admin → Payment Settings.
     paystationMerchantId: '',
     paystationPassword: '',

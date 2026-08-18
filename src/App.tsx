@@ -62,6 +62,8 @@ export default function App() {
   const [enableGoogleAuth, setEnableGoogleAuth] = useState(true);
   const [tutorialVideoUrl, setTutorialVideoUrl] = useState('');
   const [pinnedCountries, setPinnedCountries] = useState('US, GB, CA');
+  const [zinipayEnabled, setZinipayEnabled] = useState(false);
+  const [gateways, setGateways] = useState<string[]>(['credit_card', 'paystation']);
 
   // Checkout modal (coupon entry before payment)
   const [checkoutPkg, setCheckoutPkg] = useState<ProxyPackage | null>(null);
@@ -182,6 +184,8 @@ export default function App() {
         setEnableGoogleAuth(pub.website.enableGoogleAuth);
         setTutorialVideoUrl(pub.website.tutorialVideoUrl || '');
         if (pub.website.pinnedCountries) setPinnedCountries(pub.website.pinnedCountries);
+        if (Array.isArray(pub.gateways)) setGateways(pub.gateways);
+        setZinipayEnabled(pub.zinipayEnabled === true);
       } catch { /* non-fatal */ }
 
       // Validate session token if stored
@@ -1756,6 +1760,7 @@ export default function App() {
         <CheckoutModal
           pkg={checkoutPkg}
           loading={actionLoading}
+          showZinipay={zinipayEnabled}
           onClose={() => setCheckoutPkg(null)}
           onProceed={(couponCode, gateway, phone) => {
             const pkg = checkoutPkg;

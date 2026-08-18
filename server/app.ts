@@ -301,7 +301,8 @@ app.get('/api/settings/public', (req, res) => {
   res.json({
     website: dbInstance.getWebsiteSettings(),
     countries: dbInstance.getCountries().filter(c => c.isEnabled),
-    gateways: dbInstance.getPaymentSettings().activeGateways
+    gateways: dbInstance.getPaymentSettings().activeGateways,
+    zinipayEnabled: dbInstance.getPaymentSettings().zinipayEnabled === true
   });
 });
 

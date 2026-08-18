@@ -243,6 +243,7 @@ export const api = {
       website: { siteName: string; siteDescription: string; supportEmail: string; enableGoogleAuth: boolean; maintenanceMode: boolean; googleClientId?: string; tutorialVideoUrl?: string; pinnedCountries?: string };
       countries: { code: string; name: string; flag: string; isEnabled: boolean; totalServers: number }[];
       gateways: string[];
+      zinipayEnabled?: boolean;
     }> {
       const res = await fetch(`${API_BASE}/api/settings/public`);
       if (!res.ok) throw new Error('Failed to load global server context');
@@ -419,7 +420,7 @@ export const api = {
     // Configuration administration
     async getGlobalSettings(): Promise<{
       api: { proxyProviderUrl: string; proxyProviderApiKey: string; webhookSecret: string; resellerUid?: string; residentialApiUrl?: string; residentialApiKey?: string };
-      payment: { stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; paystationMerchantId?: string; paystationPassword?: string; paystationBaseUrl?: string; paystationUsdToBdt?: number };
+      payment: { stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId?: string; paystationPassword?: string; paystationBaseUrl?: string; paystationUsdToBdt?: number };
       website: { siteName: string; siteDescription: string; supportEmail: string; enableGoogleAuth: boolean; maintenanceMode: boolean; googleClientId?: string; tutorialVideoUrl?: string; pinnedCountries?: string };
     }> {
       const res = await fetch(`${API_BASE}/api/admin/settings`, { headers: getHeaders() });
@@ -429,7 +430,7 @@ export const api = {
 
     async updateGlobalSettings(settings: {
       api?: Partial<{ proxyProviderUrl: string; proxyProviderApiKey: string; webhookSecret: string; resellerUid: string; residentialApiUrl: string; residentialApiKey: string }>;
-      payment?: Partial<{ stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; paystationMerchantId: string; paystationPassword: string; paystationBaseUrl: string; paystationUsdToBdt: number }>;
+      payment?: Partial<{ stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId: string; paystationPassword: string; paystationBaseUrl: string; paystationUsdToBdt: number }>;
       website?: Partial<{ siteName: string; siteDescription: string; supportEmail: string; enableGoogleAuth: boolean; maintenanceMode: boolean; googleClientId: string; tutorialVideoUrl: string; pinnedCountries: string }>;
     }): Promise<boolean> {
       const res = await fetch(`${API_BASE}/api/admin/settings`, {

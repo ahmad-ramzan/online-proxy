@@ -11,11 +11,12 @@ import { api } from '../services/api';
 interface CheckoutModalProps {
   pkg: ProxyPackage;
   loading: boolean;
+  showZinipay?: boolean;
   onClose: () => void;
   onProceed: (couponCode: string, gateway: 'credit_card' | 'paystation', phone: string) => void;
 }
 
-export default function CheckoutModal({ pkg, loading, onClose, onProceed }: CheckoutModalProps) {
+export default function CheckoutModal({ pkg, loading, showZinipay = false, onClose, onProceed }: CheckoutModalProps) {
   const [code, setCode] = useState('');
   const [checking, setChecking] = useState(false);
   const [applied, setApplied] = useState<{ valid: boolean; finalUsd?: number; discountUsd?: number; message: string } | null>(null);
@@ -111,6 +112,7 @@ export default function CheckoutModal({ pkg, loading, onClose, onProceed }: Chec
 
         {/* Payment method buttons */}
         <div className="mt-5 space-y-2.5">
+          {showZinipay && (
           <button
             type="button"
             onClick={() => onProceed(applied?.valid ? code.trim() : '', 'credit_card', phone.trim())}
@@ -119,6 +121,7 @@ export default function CheckoutModal({ pkg, loading, onClose, onProceed }: Chec
           >
             {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} with ZiniPay <ArrowRight className="w-4 h-4" /></>}
           </button>
+          )}
           <button
             type="button"
             onClick={() => {
