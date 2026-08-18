@@ -100,12 +100,12 @@ const DEFAULT_DB: DatabaseSchema = {
     // ZiniPay — sandbox key works out of the box; replace with your production Brand/API key.
     zinipayApiKey: 'sandbox_test_8f4c9a2e7b31',
     zinipayBaseUrl: 'https://api.zinipay.com',
-    zinipayUsdToBdt: 120,
+    zinipayUsdToBdt: 127,
     // PayStation — set Store ID + API password in Admin → Payment Settings.
     paystationMerchantId: '',
     paystationPassword: '',
     paystationBaseUrl: 'https://api.paystation.com.bd',
-    paystationUsdToBdt: 120
+    paystationUsdToBdt: 127
   },
   websiteSettings: {
     siteName: 'ProxyGPT Online',

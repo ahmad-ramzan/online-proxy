@@ -131,7 +131,6 @@ export default function CheckoutModal({ pkg, loading, onClose, onProceed }: Chec
             {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} with PayStation <ArrowRight className="w-4 h-4" /></>}
           </button>
         </div>
-        <p className="text-[10px] text-slate-500 text-center mt-3">Secure payment via ZiniPay or PayStation — bKash / Nagad / Rocket / Card.</p>
       </div>
     </div>
   );
