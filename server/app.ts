@@ -722,7 +722,7 @@ const paystationCallback = async (req: express.Request, res: express.Response) =
   const trxId = (req.query.trx_id || req.body?.trx_id) as string | undefined;
   // PayStation also passes an outcome hint on the callback URL (e.g. ?status=Failed).
   const cbStatus = String(req.query.status || req.body?.status || '').toLowerCase();
-  if (!invoiceNumber) return res.redirect('/?checkout=failed');
+  if (!invoiceNumber) return res.redirect('/?checkout=cancelled');
 
   let result: { ok: boolean; trxStatus?: string } = { ok: false };
   try {
@@ -732,11 +732,13 @@ const paystationCallback = async (req: express.Request, res: express.Response) =
   }
   if (result.ok) return res.redirect('/?checkout=success');
 
-  // Not paid: separate a genuine failure/cancellation from a still-processing one,
-  // so a failed payment never shows the "awaiting confirmation" message.
+  // The customer has RETURNED to us without a confirmed payment. PayStation's
+  // methods (bKash / Nagad / card) settle instantly, so at this point the
+  // payment was cancelled, closed, or failed — never "still awaiting
+  // confirmation". Show a clear failed/cancelled banner, not the pending one.
   const st = `${result.trxStatus || ''} ${cbStatus}`.toLowerCase();
-  const failed = ['fail', 'cancel', 'declin', 'error', 'invalid', 'reject', 'expire'].some(s => st.includes(s));
-  res.redirect(failed ? '/?checkout=failed' : '/?checkout=pending');
+  const failed = ['fail', 'declin', 'error', 'invalid', 'reject', 'expire'].some(s => st.includes(s));
+  res.redirect(failed ? '/?checkout=failed' : '/?checkout=cancelled');
 };
 app.get('/api/payment/paystation/callback', paystationCallback);
 app.post('/api/payment/paystation/callback', paystationCallback);
