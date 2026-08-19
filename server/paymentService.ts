@@ -276,23 +276,23 @@ export class PaymentService {
    * /retrive-transaction (authoritative), then activates the order. Called from
    * the callback route.
    */
-  public static async completePayStationByInvoice(invoiceNumber: string, trxId?: string): Promise<{ ok: boolean; orderId?: string }> {
+  public static async completePayStationByInvoice(invoiceNumber: string, trxId?: string): Promise<{ ok: boolean; orderId?: string; trxStatus?: string }> {
     const txn = dbInstance.getTransactions().find(t => t.providerInvoiceId === invoiceNumber);
     if (!txn) {
       dbInstance.log('warning', 'payment', `PayStation callback: no transaction for invoice ${invoiceNumber}`);
       return { ok: false };
     }
-    if (txn.status === 'completed') return { ok: true, orderId: txn.orderId };
+    if (txn.status === 'completed') return { ok: true, orderId: txn.orderId, trxStatus: 'success' };
 
     const verify = await PayStationService.verifyInvoice(invoiceNumber, trxId);
     if (!verify.completed) {
       dbInstance.log('warning', 'payment', `PayStation invoice ${invoiceNumber} not completed (trx_status=${verify.trxStatus ?? 'unknown'}).`);
-      return { ok: false, orderId: txn.orderId };
+      return { ok: false, orderId: txn.orderId, trxStatus: verify.trxStatus };
     }
 
     dbInstance.updateTransaction(txn.id, { paymentMethod: 'paystation', providerTxnId: verify.trxId });
     const done = await this.completePaymentTransaction(txn.id);
-    return { ok: done, orderId: txn.orderId };
+    return { ok: done, orderId: txn.orderId, trxStatus: verify.trxStatus };
   }
 
   /**

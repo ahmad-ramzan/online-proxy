@@ -720,14 +720,23 @@ app.post('/api/payment/zinipay/webhook', zinipayWebhook);
 const paystationCallback = async (req: express.Request, res: express.Response) => {
   const invoiceNumber = (req.query.invoice_number || req.body?.invoice_number) as string | undefined;
   const trxId = (req.query.trx_id || req.body?.trx_id) as string | undefined;
-  if (!invoiceNumber) return res.redirect('/?checkout=pending');
-  let ok = false;
+  // PayStation also passes an outcome hint on the callback URL (e.g. ?status=Failed).
+  const cbStatus = String(req.query.status || req.body?.status || '').toLowerCase();
+  if (!invoiceNumber) return res.redirect('/?checkout=failed');
+
+  let result: { ok: boolean; trxStatus?: string } = { ok: false };
   try {
-    ok = (await PaymentService.completePayStationByInvoice(invoiceNumber, trxId)).ok;
+    result = await PaymentService.completePayStationByInvoice(invoiceNumber, trxId);
   } catch (e: any) {
     dbInstance.log('error', 'payment', `PayStation callback error: ${e.message}`);
   }
-  res.redirect(ok ? '/?checkout=success' : '/?checkout=pending');
+  if (result.ok) return res.redirect('/?checkout=success');
+
+  // Not paid: separate a genuine failure/cancellation from a still-processing one,
+  // so a failed payment never shows the "awaiting confirmation" message.
+  const st = `${result.trxStatus || ''} ${cbStatus}`.toLowerCase();
+  const failed = ['fail', 'cancel', 'declin', 'error', 'invalid', 'reject', 'expire'].some(s => st.includes(s));
+  res.redirect(failed ? '/?checkout=failed' : '/?checkout=pending');
 };
 app.get('/api/payment/paystation/callback', paystationCallback);
 app.post('/api/payment/paystation/callback', paystationCallback);

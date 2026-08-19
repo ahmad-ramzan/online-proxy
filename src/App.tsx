@@ -101,7 +101,7 @@ export default function App() {
 
   // Support Helpdesk state
   const [showSupportModal, setShowSupportModal] = useState(false);
-  const [checkoutNotice, setCheckoutNotice] = useState<{ type: 'success' | 'pending' | 'cancelled'; text: string } | null>(null);
+  const [checkoutNotice, setCheckoutNotice] = useState<{ type: 'success' | 'pending' | 'cancelled' | 'failed'; text: string } | null>(null);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportCategory, setSupportCategory] = useState('technical');
   const [supportTickets, setSupportTickets] = useState<import('./types').SupportTicket[]>([]);
@@ -215,12 +215,13 @@ export default function App() {
         // Load user's support tickets
         loadMyTickets();
 
-        // Handle return from ZiniPay hosted checkout (?checkout=success|pending|cancelled)
+        // Handle return from the hosted checkout (?checkout=success|pending|cancelled|failed)
         const cp = new URLSearchParams(window.location.search).get('checkout');
-        if (cp === 'success' || cp === 'pending' || cp === 'cancelled') {
+        if (cp === 'success' || cp === 'pending' || cp === 'cancelled' || cp === 'failed') {
           setDashboardTab('overview');
           if (cp === 'success') setCheckoutNotice({ type: 'success', text: 'Payment successful! Your bandwidth package is now active.' });
           else if (cp === 'pending') setCheckoutNotice({ type: 'pending', text: 'Payment received — awaiting confirmation. Your package will activate shortly.' });
+          else if (cp === 'failed') setCheckoutNotice({ type: 'failed', text: 'Payment failed — no charge was made. Please try again or use another method.' });
           else setCheckoutNotice({ type: 'cancelled', text: 'Checkout was cancelled. No payment was made.' });
           window.history.replaceState({}, '', '/');
         }
