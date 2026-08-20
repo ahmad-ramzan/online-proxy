@@ -96,7 +96,7 @@ const DEFAULT_DB: DatabaseSchema = {
     stripeSecretKey: 'sk_test_51Px2bX...',
     cryptoWalletAddress: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
     paypalClientId: 'AX_paypal_client_id_demo',
-    activeGateways: ['stripe', 'crypto', 'credit_card', 'paystation'],
+    activeGateways: ['stripe', 'crypto', 'credit_card', 'paystation', 'cryptomus'],
     // ZiniPay — sandbox key works out of the box; replace with your production Brand/API key.
     zinipayApiKey: 'sandbox_test_8f4c9a2e7b31',
     zinipayBaseUrl: 'https://api.zinipay.com',
@@ -106,7 +106,11 @@ const DEFAULT_DB: DatabaseSchema = {
     paystationMerchantId: '',
     paystationPassword: '',
     paystationBaseUrl: 'https://api.paystation.com.bd',
-    paystationUsdToBdt: 127
+    paystationUsdToBdt: 127,
+    // Cryptomus — set Merchant UUID + API key in Admin → Payment Settings.
+    cryptomusMerchantId: '',
+    cryptomusApiKey: '',
+    cryptomusBaseUrl: 'https://api.cryptomus.com'
   },
   websiteSettings: {
     siteName: 'ProxyGPT Online',

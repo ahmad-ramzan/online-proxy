@@ -93,7 +93,7 @@ export interface PaymentTransaction {
   userEmail: string;
   orderId: string;
   amountUsd: number;
-  gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation';
+  gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' | 'cryptomus';
   status: 'completed' | 'pending' | 'failed';
   createdAt: string;
   // ZiniPay (hosted checkout — Bangla QR / bKash / Nagad / card)
@@ -182,6 +182,10 @@ export interface PaymentSettings {
   paystationPassword?: string;   // API password
   paystationBaseUrl?: string;    // default https://api.paystation.com.bd
   paystationUsdToBdt?: number;   // conversion rate (falls back to zinipayUsdToBdt)
+  // Cryptomus — crypto hosted checkout (USDT / BTC / ETH …), charged in USD
+  cryptomusMerchantId?: string;  // Merchant UUID
+  cryptomusApiKey?: string;      // Payment API key
+  cryptomusBaseUrl?: string;     // default https://api.cryptomus.com
 }
 
 export interface WebsiteSettings {

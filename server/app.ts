@@ -29,6 +29,7 @@ import { dbInstance } from './db';
 import { ProxyService } from './proxyService';
 import { ResidentialService } from './residentialService';
 import { PaymentService } from './paymentService';
+import { CryptomusService } from './cryptomusService';
 import { User, ProxyPackage, Coupon } from '../src/types';
 
 const app = express();
@@ -742,6 +743,41 @@ const paystationCallback = async (req: express.Request, res: express.Response) =
 };
 app.get('/api/payment/paystation/callback', paystationCallback);
 app.post('/api/payment/paystation/callback', paystationCallback);
+
+// Cryptomus server-to-server webhook (authoritative): fires when the crypto
+// payment status changes. We re-verify via /v1/payment/info and activate.
+const cryptomusWebhook = async (req: express.Request, res: express.Response) => {
+  const orderId = (req.body?.order_id || req.query.order_id) as string | undefined;
+  if (!orderId) return res.status(400).json({ error: 'order_id is required' });
+  try {
+    const result = await PaymentService.completeCryptomusByOrder(orderId);
+    res.json({ received: true, completed: result.ok });
+  } catch (e: any) {
+    dbInstance.log('error', 'payment', `Cryptomus webhook error: ${e.message}`);
+    res.status(500).json({ received: true, completed: false });
+  }
+};
+app.post('/api/payment/cryptomus/callback', cryptomusWebhook);
+app.get('/api/payment/cryptomus/callback', cryptomusWebhook);
+
+// Cryptomus browser return: verify and bounce to the right banner. Crypto
+// settles asynchronously on-chain, so an unconfirmed-but-not-failed payment is
+// genuinely "pending" here (the webhook activates it once fully paid).
+const cryptomusReturn = async (req: express.Request, res: express.Response) => {
+  const orderId = (req.params.txn || req.query.order_id) as string | undefined;
+  if (!orderId) return res.redirect('/?checkout=pending');
+  let result: { ok: boolean; status?: string } = { ok: false };
+  try {
+    result = await PaymentService.completeCryptomusByOrder(orderId);
+  } catch (e: any) {
+    dbInstance.log('error', 'payment', `Cryptomus return error: ${e.message}`);
+  }
+  if (result.ok) return res.redirect('/?checkout=success');
+  if (CryptomusService.isFailedStatus(result.status)) return res.redirect('/?checkout=failed');
+  res.redirect('/?checkout=pending');
+};
+app.get('/api/payment/cryptomus/return', cryptomusReturn);
+app.get('/api/payment/cryptomus/return/:txn', cryptomusReturn);
 
 // Endpoint to simulate the callback of payment completion
 app.post('/api/payment/simulate-complete', authenticateToken, async (req, res) => {

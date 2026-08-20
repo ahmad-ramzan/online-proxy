@@ -13,7 +13,7 @@ interface CheckoutModalProps {
   loading: boolean;
   showZinipay?: boolean;
   onClose: () => void;
-  onProceed: (couponCode: string, gateway: 'credit_card' | 'paystation', phone: string) => void;
+  onProceed: (couponCode: string, gateway: 'credit_card' | 'paystation' | 'cryptomus', phone: string) => void;
 }
 
 export default function CheckoutModal({ pkg, loading, showZinipay = false, onClose, onProceed }: CheckoutModalProps) {
@@ -125,13 +125,21 @@ export default function CheckoutModal({ pkg, loading, showZinipay = false, onClo
           <button
             type="button"
             onClick={() => {
-              if (!phone.trim()) { setPhoneError('Phone number is required for PayStation.'); return; }
+              if (!phone.trim()) { setPhoneError('Phone number is required for BDT Payment.'); return; }
               onProceed(applied?.valid ? code.trim() : '', 'paystation', phone.trim());
             }}
             disabled={loading}
             className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
             {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} via BDT Payment <ArrowRight className="w-4 h-4" /></>}
+          </button>
+          <button
+            type="button"
+            onClick={() => onProceed(applied?.valid ? code.trim() : '', 'cryptomus', phone.trim())}
+            disabled={loading}
+            className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
+          >
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} with Crypto <ArrowRight className="w-4 h-4" /></>}
           </button>
         </div>
       </div>

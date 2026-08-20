@@ -8,6 +8,7 @@ import { dbInstance } from './db';
 import { ResidentialService } from './residentialService';
 import { ZiniPayService } from './zinipayService';
 import { PayStationService } from './paystationService';
+import { CryptomusService } from './cryptomusService';
 
 /**
  * =========================================================================
@@ -56,7 +57,7 @@ export class PaymentService {
     userEmail: string;
     packageId: string;
     amountUsd: number;
-    gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation';
+    gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' | 'cryptomus';
     couponCode?: string;
     appUrl?: string;
     custPhone?: string;
@@ -232,6 +233,29 @@ export class PaymentService {
       throw new Error(invoice.message || 'PayStation checkout could not be created.');
     }
 
+    // --- Cryptomus hosted checkout (USDT / BTC / ETH …), charged in USD ---
+    if (params.gateway === 'cryptomus' && CryptomusService.isConfigured() && params.appUrl) {
+      const invoice = await CryptomusService.createInvoice({
+        orderId: txnId, // our txn id doubles as Cryptomus order_id
+        amountUsd: finalUsd,
+        callbackUrl: `${params.appUrl}/api/payment/cryptomus/callback`,
+        returnUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`,
+        successUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`
+      });
+
+      if (invoice.ok && invoice.url) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId, providerTxnId: invoice.uuid });
+        dbInstance.log('info', 'payment', `Cryptomus checkout ready: txn ${txnId}, $${finalUsd}`);
+        return {
+          checkoutUrl: invoice.url,
+          transactionId: txnId,
+          message: 'Redirecting to Cryptomus secure crypto checkout.',
+          external: true
+        };
+      }
+      throw new Error(invoice.message || 'Cryptomus checkout could not be created.');
+    }
+
     // Return dummy URL that automatically allows testing completions in UI
     const checkoutUrl = `/checkout-simulation?transactionId=${txnId}&orderId=${newOrder.id}&amount=${finalUsd}&gateway=${params.gateway}`;
 
@@ -293,6 +317,29 @@ export class PaymentService {
     dbInstance.updateTransaction(txn.id, { paymentMethod: 'paystation', providerTxnId: verify.trxId });
     const done = await this.completePaymentTransaction(txn.id);
     return { ok: done, orderId: txn.orderId, trxStatus: verify.trxStatus };
+  }
+
+  /**
+   * Confirms a Cryptomus payment by order id: verifies via /v1/payment/info
+   * (authoritative), then activates the order. Called from the callback route.
+   */
+  public static async completeCryptomusByOrder(orderId: string): Promise<{ ok: boolean; orderId?: string; status?: string }> {
+    const txn = dbInstance.getTransactions().find(t => t.providerInvoiceId === orderId);
+    if (!txn) {
+      dbInstance.log('warning', 'payment', `Cryptomus callback: no transaction for order ${orderId}`);
+      return { ok: false };
+    }
+    if (txn.status === 'completed') return { ok: true, orderId: txn.orderId, status: 'paid' };
+
+    const verify = await CryptomusService.verifyInvoice(orderId);
+    if (!verify.completed) {
+      dbInstance.log('warning', 'payment', `Cryptomus order ${orderId} not completed (status=${verify.status ?? 'unknown'}).`);
+      return { ok: false, orderId: txn.orderId, status: verify.status };
+    }
+
+    dbInstance.updateTransaction(txn.id, { paymentMethod: 'cryptomus' });
+    const done = await this.completePaymentTransaction(txn.id);
+    return { ok: done, orderId: txn.orderId, status: verify.status };
   }
 
   /**

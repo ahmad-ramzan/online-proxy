@@ -347,7 +347,7 @@ export default function App() {
   };
 
   // Action: Initiate purchase & create session url
-  const handlePurchaseBandwidth = async (pkg: ProxyPackage, gatewaySelected: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' = 'stripe', couponCode?: string, custPhone?: string) => {
+  const handlePurchaseBandwidth = async (pkg: ProxyPackage, gatewaySelected: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' | 'cryptomus' = 'stripe', couponCode?: string, custPhone?: string) => {
     if (!token) {
       // Redirect to login first
       setPage('login');
