@@ -115,7 +115,7 @@ const DEFAULT_DB: DatabaseSchema = {
   websiteSettings: {
     siteName: 'ProxyGPT Online',
     siteDescription: 'Premium High-Speed Proxy Provider. Clean IP Addresses, Low Latency, Unlimited Concurrent Connections.',
-    supportEmail: 'support@proxygpt.online',
+    supportEmail: 'proxygptonline@gmail.com',
     enableGoogleAuth: true,
     maintenanceMode: false,
     googleClientId: '',
