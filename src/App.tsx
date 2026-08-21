@@ -1134,7 +1134,7 @@ export default function App() {
                 }`}
               >
                 <Server className="w-4 h-4" />
-                <span>Create proxies</span>
+                <span>Create Residential Proxy</span>
               </button>
 
               <button 
@@ -1147,7 +1147,7 @@ export default function App() {
                 }`}
               >
                 <Database className="w-4 h-4" />
-                <span>Residential Pricing &amp; Bandwidth</span>
+                <span>Buy Residential Proxies</span>
               </button>
 
               <button
