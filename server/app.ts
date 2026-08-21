@@ -651,6 +651,56 @@ app.post('/api/payment/create-session', authenticateToken, async (req, res) => {
   }
 });
 
+// --- WALLET ---
+
+// Current wallet balance + ledger for the logged-in user.
+app.get('/api/wallet', authenticateToken, (req, res) => {
+  const user = dbInstance.getUsers().find(u => u.id === req.user!.id);
+  res.json({
+    balance: user?.walletBalance || 0,
+    transactions: dbInstance.getWalletTransactionsByUser(req.user!.id)
+  });
+});
+
+// Start a wallet top-up via a payment gateway.
+app.post('/api/wallet/topup', authenticateToken, async (req, res) => {
+  const { amountUsd, gateway, custPhone } = req.body;
+  if (!gateway) return res.status(400).json({ error: 'A payment method is required.' });
+  if (gateway === 'paystation' && !String(custPhone || '').trim()) {
+    return res.status(400).json({ error: 'A phone number is required for BDT Payment.' });
+  }
+  try {
+    const session = await PaymentService.createWalletTopupSession({
+      userId: req.user!.id,
+      userEmail: req.user!.email,
+      amountUsd: parseFloat(amountUsd) || 0,
+      gateway,
+      appUrl: publicBaseUrl(req),
+      custPhone: custPhone ? String(custPhone) : undefined
+    });
+    res.json(session);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Failed to start wallet top-up.' });
+  }
+});
+
+// Pay for a package directly from the wallet balance.
+app.post('/api/wallet/pay', authenticateToken, async (req, res) => {
+  const { packageId, couponCode } = req.body;
+  if (!packageId) return res.status(400).json({ error: 'Package is required.' });
+  try {
+    const result = await PaymentService.payFromWallet({
+      userId: req.user!.id,
+      userEmail: req.user!.email,
+      packageId,
+      couponCode: couponCode ? String(couponCode) : undefined
+    });
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Wallet payment failed.' });
+  }
+});
+
 // Validate a coupon against a package (for client-side preview). Auth required.
 app.post('/api/payment/validate-coupon', authenticateToken, (req, res) => {
   const { code, packageId } = req.body;
@@ -685,13 +735,14 @@ const zinipayReturn = async (req: express.Request, res: express.Response) => {
   if (!invoiceId && txnParam) {
     invoiceId = dbInstance.getTransactions().find(t => t.id === txnParam)?.providerInvoiceId || '';
   }
-  let ok = false;
+  let ok = false, orderId: string | undefined;
   try {
-    if (invoiceId) ok = (await PaymentService.completePaymentByInvoiceId(invoiceId)).ok;
+    if (invoiceId) { const r = await PaymentService.completePaymentByInvoiceId(invoiceId); ok = r.ok; orderId = r.orderId; }
   } catch (e: any) {
     dbInstance.log('error', 'payment', `ZiniPay return handler error: ${e.message}`);
   }
-  res.redirect(ok ? '/?checkout=success' : '/?checkout=pending');
+  // orderId empty ⇒ this was a wallet top-up, not a package purchase.
+  res.redirect(ok ? (orderId ? '/?checkout=success' : '/?checkout=topup') : '/?checkout=pending');
 };
 app.get('/api/payment/zinipay/return', zinipayReturn);
 app.get('/api/payment/zinipay/return/:txn', zinipayReturn);
@@ -725,13 +776,13 @@ const paystationCallback = async (req: express.Request, res: express.Response) =
   const cbStatus = String(req.query.status || req.body?.status || '').toLowerCase();
   if (!invoiceNumber) return res.redirect('/?checkout=cancelled');
 
-  let result: { ok: boolean; trxStatus?: string } = { ok: false };
+  let result: { ok: boolean; trxStatus?: string; orderId?: string } = { ok: false };
   try {
     result = await PaymentService.completePayStationByInvoice(invoiceNumber, trxId);
   } catch (e: any) {
     dbInstance.log('error', 'payment', `PayStation callback error: ${e.message}`);
   }
-  if (result.ok) return res.redirect('/?checkout=success');
+  if (result.ok) return res.redirect(result.orderId ? '/?checkout=success' : '/?checkout=topup');
 
   // The customer has RETURNED to us without a confirmed payment. PayStation's
   // methods (bKash / Nagad / card) settle instantly, so at this point the
@@ -766,13 +817,13 @@ app.get('/api/payment/cryptomus/callback', cryptomusWebhook);
 const cryptomusReturn = async (req: express.Request, res: express.Response) => {
   const orderId = (req.params.txn || req.query.order_id) as string | undefined;
   if (!orderId) return res.redirect('/?checkout=pending');
-  let result: { ok: boolean; status?: string } = { ok: false };
+  let result: { ok: boolean; status?: string; orderId?: string } = { ok: false };
   try {
     result = await PaymentService.completeCryptomusByOrder(orderId);
   } catch (e: any) {
     dbInstance.log('error', 'payment', `Cryptomus return error: ${e.message}`);
   }
-  if (result.ok) return res.redirect('/?checkout=success');
+  if (result.ok) return res.redirect(result.orderId ? '/?checkout=success' : '/?checkout=topup');
   if (CryptomusService.isFailedStatus(result.status)) return res.redirect('/?checkout=failed');
   res.redirect('/?checkout=pending');
 };

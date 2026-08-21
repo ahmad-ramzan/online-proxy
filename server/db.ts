@@ -8,7 +8,7 @@ import path from 'path';
 import {
   User, ProxyPackage, ProxyOrder, CreatedProxy,
   PaymentTransaction, SystemLog, CountryConfig,
-  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket
+  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction
 } from '../src/types';
 
 // JSON file "database". On a VPS this persists on disk across restarts.
@@ -30,6 +30,7 @@ interface DatabaseSchema {
   websiteSettings: WebsiteSettings;
   noticePosts: NoticePost[];
   supportTickets: SupportTicket[];
+  walletTransactions: WalletTransaction[];
 }
 
 const DEFAULT_DB: DatabaseSchema = {
@@ -66,6 +67,7 @@ const DEFAULT_DB: DatabaseSchema = {
     }
   ],
   supportTickets: [],
+  walletTransactions: [],
   logs: [
     {
       id: 'log_1',
@@ -291,6 +293,52 @@ class Database {
     db.transactions.push(txn);
     this.write(db);
     return txn;
+  }
+
+  // --- WALLET ---
+
+  public getWalletTransactionsByUser(userId: string): WalletTransaction[] {
+    return (this.read().walletTransactions || [])
+      .filter(w => w.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  /** Credit the user's wallet and record a ledger entry. Returns new balance. */
+  public creditWallet(userId: string, amountUsd: number, description: string): number {
+    const db = this.read();
+    const user = db.users.find(u => u.id === userId);
+    if (!user) return 0;
+    const newBalance = Math.round(((user.walletBalance || 0) + amountUsd) * 100) / 100;
+    user.walletBalance = newBalance;
+    if (!db.walletTransactions) db.walletTransactions = [];
+    db.walletTransactions.push({
+      id: `wtx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId, type: 'topup', amountUsd: Math.round(amountUsd * 100) / 100,
+      balanceAfter: newBalance, description, createdAt: new Date().toISOString()
+    });
+    this.write(db);
+    this.log('info', 'payment', `Wallet credited $${amountUsd} for ${user.email} → balance $${newBalance}`);
+    return newBalance;
+  }
+
+  /** Debit the wallet if funds suffice. Returns {ok, balance}. */
+  public debitWallet(userId: string, amountUsd: number, description: string): { ok: boolean; balance: number } {
+    const db = this.read();
+    const user = db.users.find(u => u.id === userId);
+    if (!user) return { ok: false, balance: 0 };
+    const bal = user.walletBalance || 0;
+    if (bal + 1e-9 < amountUsd) return { ok: false, balance: bal };
+    const newBalance = Math.round((bal - amountUsd) * 100) / 100;
+    user.walletBalance = newBalance;
+    if (!db.walletTransactions) db.walletTransactions = [];
+    db.walletTransactions.push({
+      id: `wtx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId, type: 'debit', amountUsd: Math.round(amountUsd * 100) / 100,
+      balanceAfter: newBalance, description, createdAt: new Date().toISOString()
+    });
+    this.write(db);
+    this.log('info', 'payment', `Wallet debited $${amountUsd} for ${user.email} → balance $${newBalance}`);
+    return { ok: true, balance: newBalance };
   }
 
   public updateTransaction(id: string, updates: Partial<PaymentTransaction>): PaymentTransaction | null {

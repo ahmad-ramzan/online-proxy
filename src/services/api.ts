@@ -237,6 +237,31 @@ export const api = {
     }
   },
 
+  // Prepaid wallet (USD)
+  wallet: {
+    async get(): Promise<{ balance: number; transactions: { id: string; type: 'topup' | 'debit'; amountUsd: number; balanceAfter: number; description: string; createdAt: string }[] }> {
+      const res = await fetch(`${API_BASE}/api/wallet`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load wallet');
+      return res.json();
+    },
+    async topup(amountUsd: number, gateway: 'credit_card' | 'paystation' | 'cryptomus', custPhone?: string): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
+      const res = await fetch(`${API_BASE}/api/wallet/topup`, {
+        method: 'POST', headers: getHeaders(),
+        body: JSON.stringify({ amountUsd, gateway, custPhone })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Top-up failed'); }
+      return res.json();
+    },
+    async pay(packageId: string, couponCode?: string): Promise<{ ok: boolean; orderId: string }> {
+      const res = await fetch(`${API_BASE}/api/wallet/pay`, {
+        method: 'POST', headers: getHeaders(),
+        body: JSON.stringify({ packageId, couponCode })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Wallet payment failed'); }
+      return res.json();
+    }
+  },
+
   // Shared site metrics and configuration
   settings: {
     async getPublicConfig(): Promise<{

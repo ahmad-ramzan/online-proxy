@@ -8,7 +8,7 @@ import {
   Shield, Server, Key, LayoutDashboard, Compass, Lock,
   Loader2, LogOut, Code, AlertTriangle, Users, Database, ArrowLeft, Globe, Zap,
   HelpCircle, PlayCircle, Menu, X, Megaphone, Pin, Tag, Bell, ChevronDown, Settings,
-  Edit2, Save, Image, ExternalLink
+  Edit2, Save, Image, ExternalLink, Wallet, Plus
 } from 'lucide-react';
 import { User, ProxyPackage, CreatedProxy, ProxyOrder, PaymentTransaction } from './types';
 import { api } from './services/api';
@@ -21,6 +21,7 @@ import CheckoutSimulator from './components/CheckoutSimulator';
 import AdminPanel from './components/AdminPanel';
 import GoogleSignInButton from './components/GoogleSignInButton';
 import CheckoutModal from './components/CheckoutModal';
+import TopUpModal from './components/TopUpModal';
 
 // Convert a YouTube URL (watch / youtu.be / embed / shorts) or a bare 11-char id
 // into an embeddable player URL. Returns null if it can't be parsed.
@@ -102,6 +103,8 @@ export default function App() {
   // Support Helpdesk state
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<{ type: 'success' | 'pending' | 'cancelled' | 'failed'; text: string } | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [showTopup, setShowTopup] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportCategory, setSupportCategory] = useState('technical');
   const [supportTickets, setSupportTickets] = useState<import('./types').SupportTicket[]>([]);
@@ -205,6 +208,7 @@ export default function App() {
         setMyTransactions(txns);
         // Usage is fetched separately so slow provider calls never block the ledger.
         api.proxy.getUsage().then(setUsage).catch(() => {});
+        api.wallet.get().then(w => setWalletBalance(w.balance)).catch(() => {});
 
         // Redirect to panel if logged in
         setPage(activeUser.role === 'admin' ? 'admin' : 'dashboard');
@@ -217,10 +221,11 @@ export default function App() {
 
         // Handle return from the hosted checkout (?checkout=success|pending|cancelled|failed)
         const cp = new URLSearchParams(window.location.search).get('checkout');
-        if (cp === 'success' || cp === 'pending' || cp === 'cancelled' || cp === 'failed') {
+        if (cp === 'success' || cp === 'pending' || cp === 'cancelled' || cp === 'failed' || cp === 'topup') {
           setDashboardTab('overview');
           if (cp === 'success') setCheckoutNotice({ type: 'success', text: 'Payment successful! Your bandwidth package is now active.' });
-          else if (cp === 'pending') setCheckoutNotice({ type: 'pending', text: 'Payment received — awaiting confirmation. Your package will activate shortly.' });
+          else if (cp === 'topup') setCheckoutNotice({ type: 'success', text: 'Wallet topped up successfully! Your balance has been updated.' });
+          else if (cp === 'pending') setCheckoutNotice({ type: 'pending', text: 'Payment received — awaiting confirmation. Your balance will update shortly.' });
           else if (cp === 'failed') setCheckoutNotice({ type: 'failed', text: 'Payment failed — no charge was made. Please try again or use another method.' });
           else setCheckoutNotice({ type: 'cancelled', text: 'Checkout was cancelled. No payment was made.' });
           window.history.replaceState({}, '', '/');
@@ -267,10 +272,13 @@ export default function App() {
       setMyTransactions(txns);
       // Usage is fetched separately so slow provider calls never block the ledger.
       api.proxy.getUsage().then(setUsage).catch(() => {});
+      api.wallet.get().then(w => setWalletBalance(w.balance)).catch(() => {});
     } catch (e) {
       console.error('Ledger sync failed:', e);
     }
   };
+
+  const refreshWallet = () => api.wallet.get().then(w => setWalletBalance(w.balance)).catch(() => {});
 
   // Action: Standard Email/Password Auth Login
   const handleLogin = async (e: React.FormEvent) => {
@@ -1246,18 +1254,19 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-                {/* Quick IP-check: open ipgpt.net to see the assigned IP */}
-                <a
-                  href="https://ipgpt.net"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Open ipgpt.net — check your IP"
-                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-850 hover:border-blue-500/60 rounded-xl transition-colors cursor-pointer"
+                {/* Wallet: Top Up + balance */}
+                <button
+                  onClick={() => setShowTopup(true)}
+                  title="Top up your wallet"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 rounded-xl transition-all cursor-pointer"
                 >
-                  <Globe className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <span className="text-xs font-bold text-blue-400 font-mono hidden sm:block">ipgpt.net</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                </a>
+                  <Plus className="w-3.5 h-3.5 text-white shrink-0" />
+                  <span className="text-xs font-bold text-white hidden sm:block">Top Up</span>
+                </button>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-850 rounded-xl">
+                  <Wallet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="text-xs font-bold text-white">${walletBalance.toFixed(2)}</span>
+                </div>
 
                 <div className="relative">
                   <button
@@ -1763,12 +1772,34 @@ export default function App() {
           loading={actionLoading}
           showZinipay={zinipayEnabled}
           onClose={() => setCheckoutPkg(null)}
+          walletBalance={walletBalance}
+          onWalletPay={async (couponCode) => {
+            const pkg = checkoutPkg;
+            if (!pkg) return;
+            setActionLoading(true);
+            try {
+              await api.wallet.pay(pkg.id, couponCode || undefined);
+              setCheckoutPkg(null);
+              await syncLedgerData();
+              setDashboardTab('overview');
+              setCheckoutNotice({ type: 'success', text: 'Payment successful from wallet! Your bandwidth package is now active.' });
+            } catch (e: any) {
+              alert(e.message || 'Wallet payment failed.');
+            } finally {
+              setActionLoading(false);
+            }
+          }}
           onProceed={(couponCode, gateway, phone) => {
             const pkg = checkoutPkg;
             setCheckoutPkg(null);
             handlePurchaseBandwidth(pkg, gateway, couponCode, phone);
           }}
         />
+      )}
+
+      {/* Wallet Top-Up Modal */}
+      {showTopup && (
+        <TopUpModal showZinipay={zinipayEnabled} onClose={() => setShowTopup(false)} />
       )}
 
       {/* Support Dialog Modal */}

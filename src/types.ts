@@ -11,6 +11,18 @@ export interface User {
   role: 'user' | 'admin';
   isActive: boolean;
   createdAt: string;
+  walletBalance?: number; // prepaid wallet balance in USD
+}
+
+// One line in a user's wallet ledger (top-up credit or purchase debit).
+export interface WalletTransaction {
+  id: string;
+  userId: string;
+  type: 'topup' | 'debit';
+  amountUsd: number;      // positive number; `type` gives the direction
+  balanceAfter: number;   // wallet balance after this entry
+  description: string;
+  createdAt: string;
 }
 
 export interface ProxyPackage {
@@ -103,6 +115,8 @@ export interface PaymentTransaction {
   // Coupon applied to this transaction
   couponCode?: string;
   discountUsd?: number;
+  // 'wallet' = a wallet top-up (credits balance, no order); default 'order'.
+  purpose?: 'order' | 'wallet';
 }
 
 // Discount coupons — admin creates, clients apply at checkout.

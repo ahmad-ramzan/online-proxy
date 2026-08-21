@@ -273,6 +273,142 @@ export class PaymentService {
   }
 
   /**
+   * Starts a WALLET TOP-UP: creates a `purpose: 'wallet'` transaction (no order)
+   * and routes it to the chosen gateway. On payment completion the shared
+   * callbacks credit the user's wallet balance (see completePaymentTransaction).
+   */
+  public static async createWalletTopupSession(params: {
+    userId: string;
+    userEmail: string;
+    amountUsd: number;
+    gateway: 'credit_card' | 'paystation' | 'cryptomus';
+    appUrl: string;
+    custPhone?: string;
+  }): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
+    const amountUsd = Math.round((params.amountUsd || 0) * 100) / 100;
+    if (!amountUsd || amountUsd < 1) throw new Error('Minimum top-up amount is $1.');
+    if (amountUsd > 10000) throw new Error('Top-up amount is too large.');
+
+    const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const transaction: PaymentTransaction = {
+      id: txnId,
+      userId: params.userId,
+      userEmail: params.userEmail,
+      orderId: '',
+      amountUsd,
+      gateway: params.gateway,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      purpose: 'wallet'
+    };
+    dbInstance.insertTransaction(transaction);
+
+    // --- ZiniPay ---
+    if (params.gateway === 'credit_card' && ZiniPayService.isConfigured()) {
+      const amountBdt = ZiniPayService.usdToBdt(amountUsd);
+      const invoice = await ZiniPayService.createInvoice({
+        name: params.userEmail.split('@')[0] || 'Customer', email: params.userEmail, amountBdt,
+        redirectUrl: `${params.appUrl}/api/payment/zinipay/return/${txnId}`,
+        cancelUrl: `${params.appUrl}/api/payment/zinipay/cancel/${txnId}`,
+        webhookUrl: `${params.appUrl}/api/payment/zinipay/webhook`,
+        metadata: { txnId, purpose: 'wallet', userId: params.userId }
+      });
+      if (invoice.ok && invoice.paymentUrl) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: invoice.invoiceId });
+        return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'ZiniPay top-up could not be created.');
+    }
+
+    // --- PayStation ---
+    if (params.gateway === 'paystation' && PayStationService.isConfigured()) {
+      const invoice = await PayStationService.createInvoice({
+        invoiceNumber: txnId, name: params.userEmail.split('@')[0] || 'Customer',
+        phone: (params.custPhone || '').trim() || '01700000000', email: params.userEmail,
+        address: 'Bangladesh', amountBdt: PayStationService.usdToBdt(amountUsd),
+        reference: 'wallet-topup', callbackUrl: `${params.appUrl}/api/payment/paystation/callback`
+      });
+      if (invoice.ok && invoice.paymentUrl) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId });
+        return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'PayStation top-up could not be created.');
+    }
+
+    // --- Cryptomus ---
+    if (params.gateway === 'cryptomus' && CryptomusService.isConfigured()) {
+      const invoice = await CryptomusService.createInvoice({
+        orderId: txnId, amountUsd,
+        callbackUrl: `${params.appUrl}/api/payment/cryptomus/callback`,
+        returnUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`,
+        successUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`
+      });
+      if (invoice.ok && invoice.url) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId, providerTxnId: invoice.uuid });
+        return { checkoutUrl: invoice.url, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'Cryptomus top-up could not be created.');
+    }
+
+    throw new Error('This payment method is not available for top-up right now.');
+  }
+
+  /**
+   * Pays for a package straight from the user's wallet balance: debits the
+   * wallet, creates an active order, and reserves the Proxy-Seller allocation.
+   */
+  public static async payFromWallet(params: { userId: string; userEmail: string; packageId: string; couponCode?: string }): Promise<{ ok: boolean; orderId: string }> {
+    const pkg = dbInstance.getPackages().find(p => p.id === params.packageId);
+    if (!pkg) throw new Error(`Invalid pricing package selected: ${params.packageId}`);
+
+    const couponEval = this.evaluateCoupon(pkg.priceUsd, params.couponCode);
+    if (couponEval.error) throw new Error(couponEval.error);
+    const finalUsd = couponEval.finalUsd;
+
+    // Stock guard (same as gateway checkout).
+    const stock = await ResidentialService.getAvailableStockGb();
+    if (stock.live && stock.availableGb < pkg.bandwidthGb) {
+      throw new Error(stock.availableGb <= 0
+        ? 'Sorry, our residential proxy stock is currently sold out. Please check back later.'
+        : `Sorry, only ${stock.availableGb.toFixed(1)} GB of residential stock is available right now.`);
+    }
+
+    const debit = dbInstance.debitWallet(params.userId, finalUsd, `Purchase: ${pkg.name} (${pkg.bandwidthGb} GB)`);
+    if (!debit.ok) throw new Error('Insufficient wallet balance. Please top up your wallet first.');
+
+    const newOrder: ProxyOrder = {
+      id: `ord_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId: params.userId, packageId: pkg.id, packageName: pkg.name,
+      bandwidthGb: pkg.bandwidthGb, bandwidthUsedGb: 0, priceUsd: finalUsd,
+      status: 'active', createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    };
+    dbInstance.insertOrder(newOrder);
+
+    const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    dbInstance.insertTransaction({
+      id: txnId, userId: params.userId, userEmail: params.userEmail, orderId: newOrder.id,
+      amountUsd: finalUsd, gateway: 'crypto', status: 'completed', createdAt: new Date().toISOString(),
+      paymentMethod: 'wallet', couponCode: couponEval.couponCode, discountUsd: couponEval.discountUsd || undefined
+    });
+    if (couponEval.couponCode) {
+      const coupon = dbInstance.findCouponByCode(couponEval.couponCode);
+      if (coupon) dbInstance.updateCoupon(coupon.id, { usedCount: coupon.usedCount + 1 });
+    }
+
+    // Reserve the customer's traffic on Proxy-Seller (decimal GB).
+    try {
+      const trafficBytes = Math.round(newOrder.bandwidthGb * 1000 * 1000 * 1000);
+      const sub = await ResidentialService.createSubUserPackage({ trafficBytes });
+      dbInstance.updateOrder(newOrder.id, { subUserPackageKey: sub.packageKey });
+    } catch (e) {
+      console.error('Failed to reserve sub-user allocation (wallet pay): ', e);
+    }
+    dbInstance.log('info', 'payment', `Order ${newOrder.id} paid from wallet ($${finalUsd}).`);
+    return { ok: true, orderId: newOrder.id };
+  }
+
+  /**
    * Confirms a ZiniPay payment by invoice id: verifies with ZiniPay (authoritative),
    * then activates the order. Called from the webhook and the redirect-return route.
    */
@@ -361,6 +497,13 @@ export class PaymentService {
     // Update Transaction State
     txn.status = 'completed';
     db.log('info', 'payment', `Payment verified successfully for Transaction: ${transactionId} via ${txn.gateway.toUpperCase()}`);
+
+    // Wallet top-up: credit the user's balance instead of activating an order.
+    if (txn.purpose === 'wallet') {
+      db.updateTransaction(txn.id, { status: 'completed' });
+      db.creditWallet(txn.userId, txn.amountUsd, `Wallet top-up via ${txn.gateway}`);
+      return true;
+    }
 
     // Update corresponding Order State to 'active'
     db.updateOrder(txn.orderId, { status: 'active' });

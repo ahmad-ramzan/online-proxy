@@ -12,11 +12,13 @@ interface CheckoutModalProps {
   pkg: ProxyPackage;
   loading: boolean;
   showZinipay?: boolean;
+  walletBalance?: number;
+  onWalletPay?: (couponCode: string) => void;
   onClose: () => void;
   onProceed: (couponCode: string, gateway: 'credit_card' | 'paystation' | 'cryptomus', phone: string) => void;
 }
 
-export default function CheckoutModal({ pkg, loading, showZinipay = false, onClose, onProceed }: CheckoutModalProps) {
+export default function CheckoutModal({ pkg, loading, showZinipay = false, walletBalance = 0, onWalletPay, onClose, onProceed }: CheckoutModalProps) {
   const [code, setCode] = useState('');
   const [checking, setChecking] = useState(false);
   const [applied, setApplied] = useState<{ valid: boolean; finalUsd?: number; discountUsd?: number; message: string } | null>(null);
@@ -112,6 +114,16 @@ export default function CheckoutModal({ pkg, loading, showZinipay = false, onClo
 
         {/* Payment method buttons */}
         <div className="mt-5 space-y-2.5">
+          {onWalletPay && walletBalance >= finalPrice && (
+            <button
+              type="button"
+              onClick={() => onWalletPay(applied?.valid ? code.trim() : '')}
+              disabled={loading}
+              className="w-full py-3.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-50 rounded-xl font-bold text-sm text-white shadow-lg shadow-fuchsia-900/40 flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : <>Pay ${finalPrice} from Wallet (${walletBalance.toFixed(2)}) <ArrowRight className="w-4 h-4" /></>}
+            </button>
+          )}
           {showZinipay && (
           <button
             type="button"
