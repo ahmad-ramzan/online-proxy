@@ -1147,7 +1147,7 @@ export default function App() {
                 }`}
               >
                 <Database className="w-4 h-4" />
-                <span>Pricing & Bandwidth</span>
+                <span>Residential Pricing &amp; Bandwidth</span>
               </button>
 
               <button
