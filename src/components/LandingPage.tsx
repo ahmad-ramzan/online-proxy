@@ -258,7 +258,7 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
               </button>
             </div>
 
-            <div className="flex items-center gap-6 pt-4 border-t border-slate-900">
+            <div className="flex items-center flex-wrap gap-x-6 gap-y-4 pt-4 border-t border-slate-900">
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="w-10 h-10 rounded-full border-2 border-slate-950 bg-slate-800 overflow-hidden flex items-center justify-center text-xs font-bold text-slate-300">
@@ -275,6 +275,33 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
                   <span className="text-xs text-slate-500 ml-2">4.9/5 Rating</span>
                 </div>
               </div>
+
+              {/* Trustpilot rating badge */}
+              <a
+                href="https://www.trustpilot.com/review/proxygpt.online"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:opacity-90 transition-opacity"
+              >
+                <span className="text-sm font-bold text-white">Great</span>
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4].map((i) => (
+                    <span key={i} className="w-5 h-5 bg-[#00b67a] flex items-center justify-center">
+                      <Star className="w-3.5 h-3.5 fill-white text-white" />
+                    </span>
+                  ))}
+                  {/* 5th star ~30% filled for a 4.3 score */}
+                  <span className="w-5 h-5 relative bg-[#dcdce6] flex items-center justify-center overflow-hidden">
+                    <span className="absolute left-0 top-0 h-full bg-[#00b67a]" style={{ width: '30%' }}></span>
+                    <Star className="w-3.5 h-3.5 fill-white text-white relative" />
+                  </span>
+                </div>
+                <span className="text-sm text-slate-400">on</span>
+                <span className="flex items-center gap-1">
+                  <Star className="w-4 h-4 fill-[#00b67a] text-[#00b67a]" />
+                  <span className="text-sm font-bold text-white">Trustpilot</span>
+                </span>
+              </a>
             </div>
           </div>
 
