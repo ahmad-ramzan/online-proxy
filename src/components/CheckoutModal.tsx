@@ -129,7 +129,7 @@ export default function CheckoutModal({ pkg, loading, showZinipay = false, onClo
               onProceed(applied?.valid ? code.trim() : '', 'paystation', phone.trim());
             }}
             disabled={loading}
-            className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
+            className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 disabled:opacity-50 rounded-xl font-bold text-sm text-white shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
             {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} via BDT Payment <ArrowRight className="w-4 h-4" /></>}
           </button>
@@ -137,7 +137,7 @@ export default function CheckoutModal({ pkg, loading, showZinipay = false, onClo
             type="button"
             onClick={() => onProceed(applied?.valid ? code.trim() : '', 'cryptomus', phone.trim())}
             disabled={loading}
-            className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 cursor-pointer transition-all"
+            className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 disabled:opacity-50 rounded-xl font-bold text-sm text-white shadow-lg shadow-orange-900/40 flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
             {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay ${finalPrice} with Crypto <ArrowRight className="w-4 h-4" /></>}
           </button>
