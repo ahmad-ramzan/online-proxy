@@ -595,7 +595,7 @@ export default function App() {
               <p>We use essential local storage data and session variables to keep you securely signed in to your client panel.</p>
 
               <h2 className="text-base font-bold text-white mt-4">Contact Support</h2>
-              <p>If you have any questions about this Privacy Policy or your personal data, you can contact our support team at <span className="font-bold text-blue-400">admin@proxygpt.online</span>.</p>
+              <p>If you have any questions about this Privacy Policy or your personal data, you can contact our support team at <span className="font-bold text-blue-400">proxygptonline@gmail.com</span>.</p>
             </div>
           </div>
         </div>
@@ -644,13 +644,13 @@ export default function App() {
               </ul>
 
               <h2 className="text-base font-bold text-white mt-4">How to Request a Refund</h2>
-              <p>Email <span className="font-bold text-blue-400">admin@proxygpt.online</span> or open a support ticket from your dashboard with your account email, order ID, and a description of the issue. Eligible refunds are processed back to the original payment method within <span className="font-semibold text-white">7–10 business days</span>.</p>
+              <p>Email <span className="font-bold text-blue-400">proxygptonline@gmail.com</span> or open a support ticket from your dashboard with your account email, order ID, and a description of the issue. Eligible refunds are processed back to the original payment method within <span className="font-semibold text-white">7–10 business days</span>.</p>
 
               <h2 className="text-base font-bold text-white mt-4">Currency</h2>
               <p>Plans are priced in USD and charged in Bangladeshi Taka (BDT) via our payment provider. Refunds are issued in BDT at the applicable conversion rate.</p>
 
               <h2 className="text-base font-bold text-white mt-4">Contact</h2>
-              <p>For any refund questions, contact our support team at <span className="font-bold text-blue-400">admin@proxygpt.online</span>.</p>
+              <p>For any refund questions, contact our support team at <span className="font-bold text-blue-400">proxygptonline@gmail.com</span>.</p>
             </div>
           </div>
         </div>
@@ -787,8 +787,8 @@ export default function App() {
                 <div className="bg-slate-950/60 border border-slate-850 p-5 rounded-2xl space-y-2">
                   <h3 className="text-sm font-bold text-white uppercase tracking-wide text-blue-400">Direct Email</h3>
                   <p className="text-xs text-slate-400">Drop us an email at any time. Our ticket dispatchers will route it to the appropriate engineer.</p>
-                  <a href="mailto:admin@proxygpt.online" className="inline-block text-sm font-bold text-white hover:text-blue-400 transition-colors">
-                    admin@proxygpt.online
+                  <a href="mailto:proxygptonline@gmail.com" className="inline-block text-sm font-bold text-white hover:text-blue-400 transition-colors">
+                    proxygptonline@gmail.com
                   </a>
                 </div>
 
@@ -1829,7 +1829,7 @@ export default function App() {
                 }
               }} className="space-y-4">
                 <p className="text-xs text-slate-400 leading-relaxed mb-1">
-                  Submit a support ticket below, or email us directly at <span className="font-bold text-blue-400">admin@proxygpt.online</span>. Our network operations center is active 24/7.
+                  Submit a support ticket below, or email us directly at <span className="font-bold text-blue-400">proxygptonline@gmail.com</span>. Our network operations center is active 24/7.
                 </p>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Category</label>

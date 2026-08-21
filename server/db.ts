@@ -36,7 +36,7 @@ const DEFAULT_DB: DatabaseSchema = {
   users: [
     {
       id: 'usr_admin',
-      email: 'admin@proxygpt.online',
+      email: 'proxygptonline@gmail.com',
       name: 'Sarah Connor',
       role: 'admin',
       isActive: true,
