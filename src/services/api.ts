@@ -477,7 +477,7 @@ export const api = {
     // Configuration administration
     async getGlobalSettings(): Promise<{
       api: { proxyProviderUrl: string; proxyProviderApiKey: string; webhookSecret: string; resellerUid?: string; residentialApiUrl?: string; residentialApiKey?: string };
-      payment: { stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId?: string; paystationPassword?: string; paystationBaseUrl?: string; paystationUsdToBdt?: number; cryptomusMerchantId?: string; cryptomusApiKey?: string; cryptomusBaseUrl?: string; ltesocksApiKey?: string; ltesocksBaseUrl?: string; ltesocksPriceDivisor?: number };
+      payment: { stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId?: string; paystationPassword?: string; paystationBaseUrl?: string; paystationUsdToBdt?: number; cryptomusMerchantId?: string; cryptomusApiKey?: string; cryptomusBaseUrl?: string; ltesocksApiKey?: string; ltesocksBaseUrl?: string; ltesocksPriceDivisor?: number; ltesocksCountries?: string };
       website: { siteName: string; siteDescription: string; supportEmail: string; enableGoogleAuth: boolean; maintenanceMode: boolean; googleClientId?: string; tutorialVideoUrl?: string; pinnedCountries?: string };
     }> {
       const res = await fetch(`${API_BASE}/api/admin/settings`, { headers: getHeaders() });
@@ -487,7 +487,7 @@ export const api = {
 
     async updateGlobalSettings(settings: {
       api?: Partial<{ proxyProviderUrl: string; proxyProviderApiKey: string; webhookSecret: string; resellerUid: string; residentialApiUrl: string; residentialApiKey: string }>;
-      payment?: Partial<{ stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId: string; paystationPassword: string; paystationBaseUrl: string; paystationUsdToBdt: number; cryptomusMerchantId: string; cryptomusApiKey: string; cryptomusBaseUrl: string; ltesocksApiKey: string; ltesocksBaseUrl: string; ltesocksPriceDivisor: number }>;
+      payment?: Partial<{ stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId: string; paystationPassword: string; paystationBaseUrl: string; paystationUsdToBdt: number; cryptomusMerchantId: string; cryptomusApiKey: string; cryptomusBaseUrl: string; ltesocksApiKey: string; ltesocksBaseUrl: string; ltesocksPriceDivisor: number; ltesocksCountries: string }>;
       website?: Partial<{ siteName: string; siteDescription: string; supportEmail: string; enableGoogleAuth: boolean; maintenanceMode: boolean; googleClientId: string; tutorialVideoUrl: string; pinnedCountries: string }>;
     }): Promise<boolean> {
       const res = await fetch(`${API_BASE}/api/admin/settings`, {

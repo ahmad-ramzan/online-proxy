@@ -118,7 +118,8 @@ const DEFAULT_DB: DatabaseSchema = {
     // LTESocks — mobile proxy provider; set the Authorization token in Admin.
     ltesocksApiKey: '',
     ltesocksBaseUrl: 'https://api.ltesocks.io/v2',
-    ltesocksPriceDivisor: 100
+    ltesocksPriceDivisor: 100,
+    ltesocksCountries: 'DE, FR, CA, GB, AU'
   },
   websiteSettings: {
     siteName: 'ProxyGPT Online',

@@ -708,7 +708,13 @@ app.post('/api/wallet/pay', authenticateToken, async (req, res) => {
 app.get('/api/mobile/plans', authenticateToken, async (req, res) => {
   if (!LTESocksService.isConfigured()) return res.json({ configured: false, plans: [] });
   try {
-    const plans = await LTESocksService.getPlans();
+    const all = await LTESocksService.getPlans();
+    // Only expose the admin-allowed countries (comma-separated ISO-2 codes).
+    const allowed = ((dbInstance.getPaymentSettings() as any).ltesocksCountries || 'DE, FR, CA, GB, AU')
+      .split(',').map((c: string) => c.trim().toUpperCase()).filter(Boolean);
+    const plans = allowed.length
+      ? all.filter(p => allowed.includes((p.countryCode || '').toUpperCase()))
+      : all;
     res.json({ configured: true, plans });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Failed to load mobile plans.' });

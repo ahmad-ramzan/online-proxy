@@ -42,6 +42,8 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
   const [mine, setMine] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [country, setCountry] = useState('ALL');
+  const [operator, setOperator] = useState('ALL');
+  const [ptype, setPtype] = useState('ALL');
   const [selDur, setSelDur] = useState<Record<string, number>>({});
   const [ordering, setOrdering] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -63,9 +65,18 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
   useEffect(() => { load(); }, []);
 
   const uniqCountries: string[] = [];
-  plans.forEach((p) => { const c = String(p.countryCode || ''); if (c && !uniqCountries.includes(c)) uniqCountries.push(c); });
+  const uniqOperators: string[] = [];
+  plans.forEach((p) => {
+    const c = String(p.countryCode || ''); if (c && !uniqCountries.includes(c)) uniqCountries.push(c);
+    const op = operatorFromName(p.name); if (op && op !== '—' && !uniqOperators.includes(op)) uniqOperators.push(op);
+  });
+  uniqOperators.sort();
   const countries: string[] = ['ALL', ...uniqCountries];
-  const shown = country === 'ALL' ? plans : plans.filter(p => p.countryCode === country);
+  const shown = plans.filter(p =>
+    (country === 'ALL' || p.countryCode === country) &&
+    (operator === 'ALL' || operatorFromName(p.name) === operator) &&
+    (ptype === 'ALL' || ptype === 'Private')
+  );
 
   const order = async (plan: any) => {
     const idx = selDur[plan.id] ?? 0;
@@ -154,14 +165,33 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
 
       {/* Browse & buy */}
       <div>
-        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h3 className="text-sm font-bold text-white flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-emerald-400" /> Buy Mobile Proxy</h3>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-850 rounded-xl">
-              <Wallet className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs font-bold text-white">${walletBalance.toFixed(2)}</span>
-            </div>
-            <select value={country} onChange={(e) => setCountry(e.target.value)} className="bg-slate-900 border border-slate-850 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none cursor-pointer">
-              {countries.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All countries' : `${flagEmoji(c)} ${c}`}</option>)}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-850 rounded-xl">
+            <Wallet className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs font-bold text-white">${walletBalance.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Filters — Country · Operator · Type */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase block">Country</label>
+            <select value={country} onChange={(e) => { setCountry(e.target.value); setOperator('ALL'); }} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer">
+              {countries.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Countries' : `${flagEmoji(c)}  ${c}`}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase block">Operator</label>
+            <select value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer">
+              <option value="ALL">All Operators</option>
+              {uniqOperators.map(op => <option key={op} value={op}>{op}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase block">Type</label>
+            <select value={ptype} onChange={(e) => setPtype(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer">
+              <option value="ALL">All Types</option>
+              <option value="Private">Private</option>
             </select>
           </div>
         </div>

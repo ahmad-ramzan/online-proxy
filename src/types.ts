@@ -224,6 +224,7 @@ export interface PaymentSettings {
   ltesocksApiKey?: string;       // Authorization token (include the "Bearer " prefix)
   ltesocksBaseUrl?: string;      // default https://api.ltesocks.io/v2
   ltesocksPriceDivisor?: number; // LTESocks plan price unit → USD (default 100 = cents)
+  ltesocksCountries?: string;    // comma-separated ISO-2 codes shown in the Mobile tab
 }
 
 export interface WebsiteSettings {
