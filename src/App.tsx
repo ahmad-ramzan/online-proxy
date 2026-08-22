@@ -8,7 +8,7 @@ import {
   Shield, Server, Key, LayoutDashboard, Compass, Lock,
   Loader2, LogOut, Code, AlertTriangle, Users, Database, ArrowLeft, Globe, Zap,
   HelpCircle, PlayCircle, Menu, X, Megaphone, Pin, Tag, Bell, ChevronDown, Settings,
-  Edit2, Save, Image, ExternalLink, Wallet, Plus
+  Edit2, Save, Image, ExternalLink, Wallet, Plus, Smartphone
 } from 'lucide-react';
 import { User, ProxyPackage, CreatedProxy, ProxyOrder, PaymentTransaction } from './types';
 import { api } from './services/api';
@@ -22,6 +22,7 @@ import AdminPanel from './components/AdminPanel';
 import GoogleSignInButton from './components/GoogleSignInButton';
 import CheckoutModal from './components/CheckoutModal';
 import TopUpModal from './components/TopUpModal';
+import MobileProxies from './components/MobileProxies';
 
 // Convert a YouTube URL (watch / youtu.be / embed / shorts) or a bare 11-char id
 // into an embeddable player URL. Returns null if it can't be parsed.
@@ -49,7 +50,7 @@ export default function App() {
   // Navigation: 'home' | 'login' | 'signup' | 'dashboard' | 'admin'
   const [page, setPage] = useState<string>('home');
   // Subtab inside dashboard: 'overview' | 'create-proxy' | 'pricing' | 'transactions' | 'video' | 'notice-board' | 'settings'
-  const [dashboardTab, setDashboardTab] = useState<'overview' | 'create-proxy' | 'pricing' | 'transactions' | 'video' | 'notice-board' | 'settings'>('overview');
+  const [dashboardTab, setDashboardTab] = useState<'overview' | 'create-proxy' | 'mobile' | 'pricing' | 'transactions' | 'video' | 'notice-board' | 'settings'>('overview');
   
   // DB States
   const [packages, setPackages] = useState<ProxyPackage[]>([]);
@@ -71,7 +72,7 @@ export default function App() {
 
   // Mobile sidebar drawer (client dashboard portal)
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const selectTab = (t: 'overview' | 'create-proxy' | 'pricing' | 'transactions' | 'video' | 'notice-board' | 'settings') => {
+  const selectTab = (t: 'overview' | 'create-proxy' | 'mobile' | 'pricing' | 'transactions' | 'video' | 'notice-board' | 'settings') => {
     setDashboardTab(t);
     setSidebarOpen(false);
   };
@@ -1159,6 +1160,19 @@ export default function App() {
               </button>
 
               <button
+                id="tab-mobile"
+                onClick={() => selectTab('mobile')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-xs font-semibold cursor-pointer ${
+                  dashboardTab === 'mobile'
+                    ? 'bg-blue-500/10 border-l-4 border-blue-500 text-blue-400'
+                    : 'hover:bg-slate-900/50 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Mobile Proxies</span>
+              </button>
+
+              <button
                 id="tab-video"
                 onClick={() => selectTab('video')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-xs font-semibold cursor-pointer ${
@@ -1247,7 +1261,7 @@ export default function App() {
                 </button>
                 <div className="min-w-0">
                   <h1 className="text-xl font-bold text-white uppercase tracking-wider text-xs sm:text-sm truncate">
-                    {dashboardTab === 'overview' ? 'Overview' : dashboardTab === 'create-proxy' ? 'Configure Terminal' : dashboardTab === 'video' ? 'Video Tutorial' : dashboardTab === 'notice-board' ? 'Notice Board' : dashboardTab === 'settings' ? 'Account Settings' : dashboardTab === 'transactions' ? 'Order History' : 'Pricing Pool Catalog'}
+                    {dashboardTab === 'overview' ? 'Overview' : dashboardTab === 'create-proxy' ? 'Configure Terminal' : dashboardTab === 'mobile' ? 'Mobile Proxies' : dashboardTab === 'video' ? 'Video Tutorial' : dashboardTab === 'notice-board' ? 'Notice Board' : dashboardTab === 'settings' ? 'Account Settings' : dashboardTab === 'transactions' ? 'Order History' : 'Pricing Pool Catalog'}
                   </h1>
                   <p className="text-xs text-slate-500 hidden sm:block">Manage your secure unthrottled dynamic internet gateways</p>
                 </div>
@@ -1349,6 +1363,14 @@ export default function App() {
                   orders={myOrders}
                   onProxyCreated={syncLedgerData}
                   pinnedCountries={pinnedCountries}
+                />
+              )}
+
+              {dashboardTab === 'mobile' && (
+                <MobileProxies
+                  walletBalance={walletBalance}
+                  onBalanceChange={refreshWallet}
+                  onTopUp={() => setShowTopup(true)}
                 />
               )}
 

@@ -14,6 +14,26 @@ export interface User {
   walletBalance?: number; // prepaid wallet balance in USD
 }
 
+// A customer's mobile (LTESocks) proxy — one "port" ordered on their behalf.
+export interface MobileProxy {
+  id: string;
+  userId: string;
+  portId: string;         // LTESocks port id
+  planId: string;
+  planName: string;
+  countryCode: string;
+  ip: string;             // gateway ip
+  port: string;           // gateway port
+  username: string;
+  password: string;
+  protocol: 'socks5' | 'http';
+  status: string;         // LTESocks status (active/expired…)
+  resetToken?: string;    // rotate IP via this token
+  priceUsd: number;
+  createdAt: string;
+  expiresAt: string;
+}
+
 // One line in a user's wallet ledger (top-up credit or purchase debit).
 export interface WalletTransaction {
   id: string;
@@ -200,6 +220,10 @@ export interface PaymentSettings {
   cryptomusMerchantId?: string;  // Merchant UUID
   cryptomusApiKey?: string;      // Payment API key
   cryptomusBaseUrl?: string;     // default https://api.cryptomus.com
+  // LTESocks — mobile (5G/LTE) proxy provider
+  ltesocksApiKey?: string;       // Authorization token (include the "Bearer " prefix)
+  ltesocksBaseUrl?: string;      // default https://api.ltesocks.io/v2
+  ltesocksPriceDivisor?: number; // LTESocks plan price unit → USD (default 100 = cents)
 }
 
 export interface WebsiteSettings {

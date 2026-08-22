@@ -262,6 +262,38 @@ export const api = {
     }
   },
 
+  // Mobile (LTESocks) proxies
+  mobile: {
+    async getPlans(): Promise<{ configured: boolean; plans: { id: string; name: string; countryCode: string; availablePorts: number; vpnAccess: boolean; tarifications: { time: number; trafficMb: number; priceUsd: number }[] }[] }> {
+      const res = await fetch(`${API_BASE}/api/mobile/plans`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load mobile plans');
+      return res.json();
+    },
+    async getMy(): Promise<any[]> {
+      const res = await fetch(`${API_BASE}/api/mobile/my`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load mobile proxies');
+      return (await res.json()).proxies;
+    },
+    async order(planId: string, tarificationIndex: number): Promise<{ proxy: any }> {
+      const res = await fetch(`${API_BASE}/api/mobile/order`, {
+        method: 'POST', headers: getHeaders(),
+        body: JSON.stringify({ planId, tarificationIndex })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Mobile order failed'); }
+      return res.json();
+    },
+    async reset(id: string): Promise<{ success: boolean }> {
+      const res = await fetch(`${API_BASE}/api/mobile/${id}/reset`, { method: 'POST', headers: getHeaders() });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Rotate failed'); }
+      return res.json();
+    },
+    async remove(id: string): Promise<{ success: boolean }> {
+      const res = await fetch(`${API_BASE}/api/mobile/${id}`, { method: 'DELETE', headers: getHeaders() });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Delete failed'); }
+      return res.json();
+    }
+  },
+
   // Shared site metrics and configuration
   settings: {
     async getPublicConfig(): Promise<{
@@ -445,7 +477,7 @@ export const api = {
     // Configuration administration
     async getGlobalSettings(): Promise<{
       api: { proxyProviderUrl: string; proxyProviderApiKey: string; webhookSecret: string; resellerUid?: string; residentialApiUrl?: string; residentialApiKey?: string };
-      payment: { stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId?: string; paystationPassword?: string; paystationBaseUrl?: string; paystationUsdToBdt?: number; cryptomusMerchantId?: string; cryptomusApiKey?: string; cryptomusBaseUrl?: string };
+      payment: { stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId?: string; paystationPassword?: string; paystationBaseUrl?: string; paystationUsdToBdt?: number; cryptomusMerchantId?: string; cryptomusApiKey?: string; cryptomusBaseUrl?: string; ltesocksApiKey?: string; ltesocksBaseUrl?: string; ltesocksPriceDivisor?: number };
       website: { siteName: string; siteDescription: string; supportEmail: string; enableGoogleAuth: boolean; maintenanceMode: boolean; googleClientId?: string; tutorialVideoUrl?: string; pinnedCountries?: string };
     }> {
       const res = await fetch(`${API_BASE}/api/admin/settings`, { headers: getHeaders() });
@@ -455,7 +487,7 @@ export const api = {
 
     async updateGlobalSettings(settings: {
       api?: Partial<{ proxyProviderUrl: string; proxyProviderApiKey: string; webhookSecret: string; resellerUid: string; residentialApiUrl: string; residentialApiKey: string }>;
-      payment?: Partial<{ stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId: string; paystationPassword: string; paystationBaseUrl: string; paystationUsdToBdt: number; cryptomusMerchantId: string; cryptomusApiKey: string; cryptomusBaseUrl: string }>;
+      payment?: Partial<{ stripePublicKey: string; stripeSecretKey: string; cryptoWalletAddress: string; paypalClientId: string; activeGateways: string[]; zinipayApiKey?: string; zinipayUsdToBdt?: number; zinipayEnabled?: boolean; paystationMerchantId: string; paystationPassword: string; paystationBaseUrl: string; paystationUsdToBdt: number; cryptomusMerchantId: string; cryptomusApiKey: string; cryptomusBaseUrl: string; ltesocksApiKey: string; ltesocksBaseUrl: string; ltesocksPriceDivisor: number }>;
       website?: Partial<{ siteName: string; siteDescription: string; supportEmail: string; enableGoogleAuth: boolean; maintenanceMode: boolean; googleClientId: string; tutorialVideoUrl: string; pinnedCountries: string }>;
     }): Promise<boolean> {
       const res = await fetch(`${API_BASE}/api/admin/settings`, {

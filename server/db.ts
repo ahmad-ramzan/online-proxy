@@ -8,7 +8,7 @@ import path from 'path';
 import {
   User, ProxyPackage, ProxyOrder, CreatedProxy,
   PaymentTransaction, SystemLog, CountryConfig,
-  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction
+  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy
 } from '../src/types';
 
 // JSON file "database". On a VPS this persists on disk across restarts.
@@ -31,6 +31,7 @@ interface DatabaseSchema {
   noticePosts: NoticePost[];
   supportTickets: SupportTicket[];
   walletTransactions: WalletTransaction[];
+  mobileProxies: MobileProxy[];
 }
 
 const DEFAULT_DB: DatabaseSchema = {
@@ -68,6 +69,7 @@ const DEFAULT_DB: DatabaseSchema = {
   ],
   supportTickets: [],
   walletTransactions: [],
+  mobileProxies: [],
   logs: [
     {
       id: 'log_1',
@@ -112,7 +114,11 @@ const DEFAULT_DB: DatabaseSchema = {
     // Cryptomus — set Merchant UUID + API key in Admin → Payment Settings.
     cryptomusMerchantId: '',
     cryptomusApiKey: '',
-    cryptomusBaseUrl: 'https://api.cryptomus.com'
+    cryptomusBaseUrl: 'https://api.cryptomus.com',
+    // LTESocks — mobile proxy provider; set the Authorization token in Admin.
+    ltesocksApiKey: '',
+    ltesocksBaseUrl: 'https://api.ltesocks.io/v2',
+    ltesocksPriceDivisor: 100
   },
   websiteSettings: {
     siteName: 'ProxyGPT Online',
@@ -339,6 +345,45 @@ class Database {
     this.write(db);
     this.log('info', 'payment', `Wallet debited $${amountUsd} for ${user.email} → balance $${newBalance}`);
     return { ok: true, balance: newBalance };
+  }
+
+  // --- MOBILE PROXIES (LTESocks) ---
+
+  public getMobileProxiesByUser(userId: string): MobileProxy[] {
+    return (this.read().mobileProxies || [])
+      .filter(m => m.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  public getMobileProxyById(id: string): MobileProxy | undefined {
+    return (this.read().mobileProxies || []).find(m => m.id === id);
+  }
+
+  public insertMobileProxy(m: MobileProxy): MobileProxy {
+    const db = this.read();
+    if (!db.mobileProxies) db.mobileProxies = [];
+    db.mobileProxies.push(m);
+    this.write(db);
+    return m;
+  }
+
+  public updateMobileProxy(id: string, updates: Partial<MobileProxy>): MobileProxy | null {
+    const db = this.read();
+    if (!db.mobileProxies) db.mobileProxies = [];
+    const idx = db.mobileProxies.findIndex(m => m.id === id);
+    if (idx === -1) return null;
+    db.mobileProxies[idx] = { ...db.mobileProxies[idx], ...updates };
+    this.write(db);
+    return db.mobileProxies[idx];
+  }
+
+  public deleteMobileProxy(id: string): boolean {
+    const db = this.read();
+    if (!db.mobileProxies) db.mobileProxies = [];
+    const before = db.mobileProxies.length;
+    db.mobileProxies = db.mobileProxies.filter(m => m.id !== id);
+    this.write(db);
+    return db.mobileProxies.length < before;
   }
 
   public updateTransaction(id: string, updates: Partial<PaymentTransaction>): PaymentTransaction | null {

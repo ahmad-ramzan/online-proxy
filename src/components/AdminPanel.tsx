@@ -1202,6 +1202,49 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               </p>
             </div>
 
+            {/* LTESocks — mobile (5G/LTE) proxies */}
+            <div className="bg-slate-900/40 border border-slate-900 p-6 rounded-3xl space-y-4">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                LTESocks (Mobile 5G/LTE Proxies)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Authorization Token</label>
+                  <input
+                    type="password"
+                    placeholder="Bearer 1416|••••••••"
+                    value={paymentSettings.ltesocksApiKey || ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksApiKey: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">API Base URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://api.ltesocks.io/v2"
+                    value={paymentSettings.ltesocksBaseUrl || ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksBaseUrl: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Price divisor (→ USD)</label>
+                  <input
+                    type="number"
+                    placeholder="100"
+                    value={paymentSettings.ltesocksPriceDivisor ?? ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksPriceDivisor: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Get your token from the <a href="https://ltesocks.io" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">LTESocks dashboard</a> → API. Powers the client's <span className="text-slate-400">Mobile Proxies</span> tab (pass-through pricing, paid from wallet). Divisor converts LTESocks plan prices to USD (100 = prices are in cents). Keep your LTESocks account funded so orders succeed.
+              </p>
+            </div>
+
             <button
               type="submit"
               className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 text-xs font-bold text-white rounded-xl shadow-lg shadow-blue-950/40 cursor-pointer"

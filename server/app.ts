@@ -30,6 +30,7 @@ import { ProxyService } from './proxyService';
 import { ResidentialService } from './residentialService';
 import { PaymentService } from './paymentService';
 import { CryptomusService } from './cryptomusService';
+import { LTESocksService } from './ltesocksService';
 import { User, ProxyPackage, Coupon } from '../src/types';
 
 const app = express();
@@ -699,6 +700,105 @@ app.post('/api/wallet/pay', authenticateToken, async (req, res) => {
   } catch (error: any) {
     res.status(400).json({ error: error.message || 'Wallet payment failed.' });
   }
+});
+
+// --- MOBILE PROXIES (LTESocks) ---
+
+// Available mobile plans (pass-through pricing in USD).
+app.get('/api/mobile/plans', authenticateToken, async (req, res) => {
+  if (!LTESocksService.isConfigured()) return res.json({ configured: false, plans: [] });
+  try {
+    const plans = await LTESocksService.getPlans();
+    res.json({ configured: true, plans });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to load mobile plans.' });
+  }
+});
+
+// The logged-in user's mobile proxies.
+app.get('/api/mobile/my', authenticateToken, (req, res) => {
+  res.json({ proxies: dbInstance.getMobileProxiesByUser(req.user!.id) });
+});
+
+// Order a mobile proxy, paying from the wallet balance.
+app.post('/api/mobile/order', authenticateToken, async (req, res) => {
+  const { planId, tarificationIndex } = req.body;
+  if (!planId || tarificationIndex === undefined) {
+    return res.status(400).json({ error: 'planId and tarificationIndex are required.' });
+  }
+  if (!LTESocksService.isConfigured()) {
+    return res.status(400).json({ error: 'Mobile proxies are not available right now.' });
+  }
+  try {
+    const plans = await LTESocksService.getPlans();
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) return res.status(404).json({ error: 'Plan not found.' });
+    const trf = plan.tarifications[Number(tarificationIndex)];
+    if (!trf) return res.status(400).json({ error: 'Invalid duration selected.' });
+
+    // Charge the wallet first; refund if the upstream order fails.
+    const debit = dbInstance.debitWallet(req.user!.id, trf.priceUsd, `Mobile proxy: ${plan.name}`);
+    if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
+
+    let ordered;
+    try {
+      ordered = await LTESocksService.orderPort(planId, { time: trf.time, traffic: trf.trafficMb, price: trf.priceRaw });
+    } catch (e: any) {
+      dbInstance.creditWallet(req.user!.id, trf.priceUsd, `Refund — mobile proxy order failed`);
+      return res.status(502).json({ error: `Could not create the mobile proxy (${e.message}). Your wallet was refunded.` });
+    }
+
+    const s = dbInstance.getPaymentSettings();
+    const proto = (s as any)?.mobileProtocol || 'socks5';
+    const mp = dbInstance.insertMobileProxy({
+      id: `mob_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId: req.user!.id,
+      portId: ordered.portId,
+      planId: plan.id,
+      planName: plan.name,
+      countryCode: plan.countryCode,
+      ip: ordered.ip,
+      port: ordered.port,
+      username: ordered.username,
+      password: ordered.password,
+      protocol: proto === 'http' ? 'http' : 'socks5',
+      status: ordered.status,
+      resetToken: ordered.resetToken,
+      priceUsd: trf.priceUsd,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + trf.time * 1000).toISOString()
+    });
+    dbInstance.log('info', 'proxy', `Mobile proxy ordered: ${plan.name} for user ${req.user!.id} (port ${ordered.portId}).`);
+    res.json({ proxy: mp });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Mobile proxy order failed.' });
+  }
+});
+
+// Rotate the mobile IP.
+app.post('/api/mobile/:id/reset', authenticateToken, async (req, res) => {
+  const mp = dbInstance.getMobileProxyById(req.params.id);
+  if (!mp || mp.userId !== req.user!.id) return res.status(404).json({ error: 'Mobile proxy not found.' });
+  try {
+    await LTESocksService.resetPort(mp.portId);
+    // Refresh connection details after the rotation.
+    try {
+      const fresh = await LTESocksService.getPort(mp.portId);
+      dbInstance.updateMobileProxy(mp.id, { ip: fresh.ip, port: fresh.port, status: fresh.status });
+    } catch { /* non-fatal */ }
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(502).json({ error: e.message || 'Could not rotate the mobile IP.' });
+  }
+});
+
+// Release a mobile proxy.
+app.delete('/api/mobile/:id', authenticateToken, async (req, res) => {
+  const mp = dbInstance.getMobileProxyById(req.params.id);
+  if (!mp || mp.userId !== req.user!.id) return res.status(404).json({ error: 'Mobile proxy not found.' });
+  try { await LTESocksService.deletePort(mp.portId); } catch { /* proceed to remove locally */ }
+  dbInstance.deleteMobileProxy(mp.id);
+  res.json({ success: true });
 });
 
 // Validate a coupon against a package (for client-side preview). Auth required.
