@@ -242,7 +242,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
                       <div className="flex items-center justify-end gap-1.5">
                         <span className="text-slate-500">Stock:</span>
                         <span className={`w-2 h-2 rounded-full ${inStock ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                        <span className={inStock ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{inStock ? 'available' : 'out'}</span>
+                        <span className={inStock ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{inStock ? `${stock} available` : 'out of stock'}</span>
                       </div>
                     </div>
                   </div>
