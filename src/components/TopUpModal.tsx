@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Wallet, Loader2, X, ArrowRight, Phone } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -19,8 +19,10 @@ export default function TopUpModal({ showZinipay = false, onClose }: TopUpModalP
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const amountInputRef = useRef<HTMLInputElement>(null);
 
   const amt = parseFloat(amount) || 0;
+  const isCustomAmount = amount.trim() !== '' && !PRESETS.includes(amt);
 
   const topup = async (gateway: 'credit_card' | 'paystation' | 'cryptomus') => {
     if (amt < 1) { setError('Minimum top-up is $1.'); return; }
@@ -56,18 +58,30 @@ export default function TopUpModal({ showZinipay = false, onClose }: TopUpModalP
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
           <input
+            ref={amountInputRef}
             type="number" min="1" step="1" value={amount}
             onChange={(e) => { setAmount(e.target.value); setError(''); }}
             className="w-full bg-slate-950 border border-slate-850 rounded-xl pl-7 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
           />
         </div>
-        <div className="flex gap-2 mt-2">
+        <div className="grid grid-cols-5 gap-2 mt-2">
           {PRESETS.map((p) => (
             <button key={p} type="button" onClick={() => { setAmount(String(p)); setError(''); }}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${amt === p ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
+              className={`py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${amt === p ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
               ${p}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => {
+              setError('');
+              amountInputRef.current?.focus();
+              amountInputRef.current?.select();
+            }}
+            className={`py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${isCustomAmount ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+          >
+            Custom
+          </button>
         </div>
 
         {/* Phone (required for BDT Payment) */}

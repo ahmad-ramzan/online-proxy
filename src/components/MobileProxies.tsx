@@ -36,6 +36,8 @@ const durationLabel = (secs: number) => {
   return `${Math.round(secs / 86400)} day${secs >= 172800 ? 's' : ''}`;
 };
 
+const mobileTrafficLabel = () => 'Infinity GB';
+
 export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp }: MobileProxiesProps) {
   const [configured, setConfigured] = useState(true);
   const [plans, setPlans] = useState<any[]>([]);
@@ -227,7 +229,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
                     className="w-full mt-4 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer"
                   >
                     {plan.tarifications.map((t: any, i: number) => (
-                      <option key={i} value={i}>{durationLabel(t.time)} · {t.trafficMb >= 1048576 ? '∞' : Math.round(t.trafficMb / 1024) + ' GiB'} · ${t.priceUsd}</option>
+                      <option key={i} value={i}>{durationLabel(t.time)} · {mobileTrafficLabel()} · ${t.priceUsd}</option>
                     ))}
                   </select>
                 </div>

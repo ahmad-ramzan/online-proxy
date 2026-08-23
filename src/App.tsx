@@ -405,6 +405,10 @@ export default function App() {
     );
   }
 
+  const pendingDueUsd = myTransactions
+    .filter(t => t.status === 'pending' && (t.purpose || 'order') === 'order')
+    .reduce((sum, t) => sum + t.amountUsd, 0);
+
   // If in custom modular simulation checkout screen
   if (page === 'checkout' && activeCheckout) {
     return (
@@ -1277,9 +1281,21 @@ export default function App() {
                   <Plus className="w-3.5 h-3.5 text-white shrink-0" />
                   <span className="text-xs font-bold text-white hidden sm:block">Top Up</span>
                 </button>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-850 rounded-xl">
-                  <Wallet className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="text-xs font-bold text-white">${walletBalance.toFixed(2)}</span>
+                <div className="flex items-center gap-2.5 px-3 py-2 bg-blue-950/70 border border-blue-700/40 rounded-2xl shadow-lg shadow-blue-950/30">
+                  <span className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center shrink-0">
+                    <Wallet className="w-4 h-4 text-emerald-400" />
+                  </span>
+                  <div className="flex flex-col leading-none min-w-0">
+                    <span className="flex items-center gap-1.5 text-sm font-black text-white">
+                      Wallet
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-sm shadow-red-500/50"></span>
+                    </span>
+                    <span className="mt-1 flex items-center gap-1.5 text-[11px] sm:text-xs font-black whitespace-nowrap">
+                      <span className="text-emerald-400">${walletBalance.toFixed(2)}</span>
+                      <span className="text-slate-400">+</span>
+                      <span className="text-red-400">Due: ${pendingDueUsd.toFixed(2)}</span>
+                    </span>
+                  </div>
                 </div>
 
                 <div className="relative">
