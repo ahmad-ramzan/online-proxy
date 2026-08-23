@@ -405,10 +405,6 @@ export default function App() {
     );
   }
 
-  const pendingDueUsd = myTransactions
-    .filter(t => t.status === 'pending')
-    .reduce((sum, t) => sum + t.amountUsd, 0);
-
   // If in custom modular simulation checkout screen
   if (page === 'checkout' && activeCheckout) {
     return (
@@ -1292,8 +1288,6 @@ export default function App() {
                     </span>
                     <span className="mt-1 flex items-center gap-1.5 text-[11px] sm:text-xs font-black whitespace-nowrap">
                       <span className="text-emerald-400">${walletBalance.toFixed(2)}</span>
-                      <span className="text-slate-400">+</span>
-                      <span className="text-red-400">Due: ${pendingDueUsd.toFixed(2)}</span>
                     </span>
                   </div>
                 </div>
