@@ -69,6 +69,7 @@ export default function App() {
 
   // Checkout modal (coupon entry before payment)
   const [checkoutPkg, setCheckoutPkg] = useState<ProxyPackage | null>(null);
+  const [mobileCheckout, setMobileCheckout] = useState<{ pkg: ProxyPackage; planId: string; tarifIndex: number; subtitle: string } | null>(null);
 
   // Mobile sidebar drawer (client dashboard portal)
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1389,6 +1390,12 @@ export default function App() {
                   walletBalance={walletBalance}
                   onBalanceChange={refreshWallet}
                   onTopUp={(amount?: number) => { setTopupAmount(amount); setShowTopup(true); }}
+                  onCheckout={(plan: any, tarifIndex: number, subtitle: string, priceUsd: number) => {
+                    setMobileCheckout({
+                      pkg: { id: `mob_${plan.id}`, name: plan.name, bandwidthGb: 0, priceUsd, features: [], isActive: true },
+                      planId: plan.id, tarifIndex, subtitle
+                    });
+                  }}
                 />
               )}
 
@@ -1833,6 +1840,51 @@ export default function App() {
             const pkg = checkoutPkg;
             setCheckoutPkg(null);
             handlePurchaseBandwidth(pkg, gateway, couponCode, phone);
+          }}
+        />
+      )}
+
+      {mobileCheckout && (
+        <CheckoutModal
+          pkg={mobileCheckout.pkg}
+          subtitle={mobileCheckout.subtitle}
+          allowCoupon={false}
+          loading={actionLoading}
+          showZinipay={zinipayEnabled}
+          onClose={() => setMobileCheckout(null)}
+          walletBalance={walletBalance}
+          onWalletPay={async () => {
+            const mc = mobileCheckout;
+            if (!mc) return;
+            setActionLoading(true);
+            try {
+              await api.mobile.order(mc.planId, mc.tarifIndex);
+              setMobileCheckout(null);
+              await syncLedgerData();
+              await refreshWallet();
+              setCheckoutNotice({ type: 'success', text: 'Mobile proxy purchased from wallet! It is now active in the Mobile Proxies tab.' });
+            } catch (e: any) {
+              alert(e.message || 'Wallet payment failed.');
+            } finally {
+              setActionLoading(false);
+            }
+          }}
+          onProceed={async (_couponCode, gateway, phone) => {
+            const mc = mobileCheckout;
+            if (!mc) return;
+            setActionLoading(true);
+            try {
+              const res = await api.mobile.checkout(mc.planId, mc.tarifIndex, gateway, phone);
+              if (res?.checkoutUrl) {
+                window.location.href = res.checkoutUrl;
+              } else {
+                alert('Could not start checkout. Please try again.');
+              }
+            } catch (e: any) {
+              alert(e.message || 'Could not start checkout.');
+            } finally {
+              setActionLoading(false);
+            }
           }}
         />
       )}

@@ -12,6 +12,7 @@ interface MobileProxiesProps {
   walletBalance: number;
   onBalanceChange: () => void;
   onTopUp: (amount?: number) => void;
+  onCheckout: (plan: any, tarifIndex: number, subtitle: string, priceUsd: number) => void;
 }
 
 const flagEmoji = (code: string) => {
@@ -47,7 +48,7 @@ const mobileTrafficLabel = (mb: number) => {
   return `${Math.round(mb / 1024)} GB`;
 };
 
-export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp }: MobileProxiesProps) {
+export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp, onCheckout }: MobileProxiesProps) {
   const [configured, setConfigured] = useState(true);
   const [maxSpeed, setMaxSpeed] = useState(30);
   const [stock, setStock] = useState(30);
@@ -58,7 +59,6 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
   const [operator, setOperator] = useState('ALL');
   const [ptype, setPtype] = useState('ALL');
   const [selDur, setSelDur] = useState<Record<string, number>>({});
-  const [ordering, setOrdering] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -78,6 +78,8 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
     }
   };
   useEffect(() => { load(); }, []);
+  // Reload the owned-proxy list after a wallet purchase (balance changes).
+  useEffect(() => { if (!loading) load(); /* eslint-disable-next-line */ }, [walletBalance]);
 
   const uniqCountries: string[] = [];
   const uniqOperators: string[] = [];
@@ -94,21 +96,12 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
     (p.tarifications || []).some((t: any) => t.time >= MIN_TIME)
   );
 
-  const order = async (plan: any) => {
-    const idx = selDur[plan.id] ?? 0;
+  // Open the full checkout modal (wallet / BDT / crypto) for the selected duration.
+  const buy = (plan: any, idx: number) => {
     const trf = plan.tarifications[idx];
     if (!trf) return;
-    if (walletBalance < trf.priceUsd) { onTopUp(trf.priceUsd); return; }
-    setError(''); setOrdering(plan.id);
-    try {
-      await api.mobile.order(plan.id, idx);
-      await load();
-      onBalanceChange();
-    } catch (e: any) {
-      setError(e.message || 'Order failed.');
-    } finally {
-      setOrdering(null);
-    }
+    const subtitle = `${flagEmoji(plan.countryCode)} ${plan.name} · ${durationLabel(trf.time)} · ${mobileTrafficLabel(trf.trafficMb)}`;
+    onCheckout(plan, idx, subtitle, trf.priceUsd);
   };
 
   const rotate = async (m: any) => {
@@ -259,11 +252,11 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
                 <div className="flex items-center justify-between mt-4">
                   <span className="text-xl font-black text-white">${trf?.priceUsd ?? '—'}</span>
                   <button
-                    onClick={() => order(plan)}
-                    disabled={ordering === plan.id || !inStock}
+                    onClick={() => buy(plan, idx)}
+                    disabled={!inStock}
                     className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-50 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer"
                   >
-                    {ordering === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                    <Zap className="w-4 h-4" />
                     {!inStock ? 'Out of stock' : 'Buy Now'}
                   </button>
                 </div>

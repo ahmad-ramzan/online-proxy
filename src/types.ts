@@ -136,8 +136,11 @@ export interface PaymentTransaction {
   // Coupon applied to this transaction
   couponCode?: string;
   discountUsd?: number;
-  // 'wallet' = a wallet top-up (credits balance, no order); default 'order'.
-  purpose?: 'order' | 'wallet';
+  // 'wallet' = a wallet top-up (credits balance, no order); 'mobile' = a mobile
+  // (LTESocks) proxy bought via a gateway; default 'order'.
+  purpose?: 'order' | 'wallet' | 'mobile';
+  mobilePlanId?: string;
+  mobileTarificationIndex?: number;
 }
 
 // Discount coupons — admin creates, clients apply at checkout.

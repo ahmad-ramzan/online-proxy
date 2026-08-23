@@ -9,6 +9,7 @@ import { ResidentialService } from './residentialService';
 import { ZiniPayService } from './zinipayService';
 import { PayStationService } from './paystationService';
 import { CryptomusService } from './cryptomusService';
+import { LTESocksService } from './ltesocksService';
 
 /**
  * =========================================================================
@@ -354,6 +355,96 @@ export class PaymentService {
   }
 
   /**
+   * Starts a MOBILE (LTESocks) proxy purchase via a payment gateway. Creates a
+   * `purpose: 'mobile'` transaction carrying the plan + duration; on payment the
+   * shared callbacks provision the port (see completePaymentTransaction).
+   */
+  public static async createMobileCheckoutSession(params: {
+    userId: string; userEmail: string; planId: string; tarificationIndex: number;
+    gateway: 'credit_card' | 'paystation' | 'cryptomus'; appUrl: string; custPhone?: string;
+  }): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
+    const plans = await LTESocksService.getPlans();
+    const plan = plans.find(p => p.id === params.planId);
+    if (!plan) throw new Error('Mobile plan not found.');
+    const trf = plan.tarifications[params.tarificationIndex];
+    if (!trf) throw new Error('Invalid duration selected.');
+    const amountUsd = trf.priceUsd;
+
+    const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    dbInstance.insertTransaction({
+      id: txnId, userId: params.userId, userEmail: params.userEmail, orderId: '',
+      amountUsd, gateway: params.gateway, status: 'pending', createdAt: new Date().toISOString(),
+      purpose: 'mobile', mobilePlanId: params.planId, mobileTarificationIndex: params.tarificationIndex
+    });
+
+    // --- ZiniPay ---
+    if (params.gateway === 'credit_card' && ZiniPayService.isConfigured()) {
+      const invoice = await ZiniPayService.createInvoice({
+        name: params.userEmail.split('@')[0] || 'Customer', email: params.userEmail,
+        amountBdt: ZiniPayService.usdToBdt(amountUsd),
+        redirectUrl: `${params.appUrl}/api/payment/zinipay/return/${txnId}`,
+        cancelUrl: `${params.appUrl}/api/payment/zinipay/cancel/${txnId}`,
+        webhookUrl: `${params.appUrl}/api/payment/zinipay/webhook`,
+        metadata: { txnId, purpose: 'mobile' }
+      });
+      if (invoice.ok && invoice.paymentUrl) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: invoice.invoiceId });
+        return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'ZiniPay checkout could not be created.');
+    }
+    // --- PayStation ---
+    if (params.gateway === 'paystation' && PayStationService.isConfigured()) {
+      const invoice = await PayStationService.createInvoice({
+        invoiceNumber: txnId, name: params.userEmail.split('@')[0] || 'Customer',
+        phone: (params.custPhone || '').trim() || '01700000000', email: params.userEmail,
+        address: 'Bangladesh', amountBdt: PayStationService.usdToBdt(amountUsd),
+        reference: 'mobile-proxy', callbackUrl: `${params.appUrl}/api/payment/paystation/callback`
+      });
+      if (invoice.ok && invoice.paymentUrl) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId });
+        return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'PayStation checkout could not be created.');
+    }
+    // --- Cryptomus ---
+    if (params.gateway === 'cryptomus' && CryptomusService.isConfigured()) {
+      const invoice = await CryptomusService.createInvoice({
+        orderId: txnId, amountUsd,
+        callbackUrl: `${params.appUrl}/api/payment/cryptomus/callback`,
+        returnUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`,
+        successUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`
+      });
+      if (invoice.ok && invoice.url) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId, providerTxnId: invoice.uuid });
+        return { checkoutUrl: invoice.url, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'Cryptomus checkout could not be created.');
+    }
+    throw new Error('This payment method is not available right now.');
+  }
+
+  /** Provision a paid mobile proxy: order the LTESocks port + save the record. */
+  private static async provisionMobileForTxn(txn: PaymentTransaction): Promise<void> {
+    if (!txn.mobilePlanId || txn.mobileTarificationIndex === undefined) return;
+    const plans = await LTESocksService.getPlans();
+    const plan = plans.find(p => p.id === txn.mobilePlanId);
+    if (!plan) { dbInstance.log('error', 'proxy', `Mobile provision: plan ${txn.mobilePlanId} not found for txn ${txn.id}`); return; }
+    const trf = plan.tarifications[txn.mobileTarificationIndex];
+    if (!trf) return;
+    const ordered = await LTESocksService.orderPort(plan.id, { time: trf.time, traffic: trf.trafficMb, price: trf.priceRaw });
+    dbInstance.insertMobileProxy({
+      id: `mob_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId: txn.userId, portId: ordered.portId, planId: plan.id, planName: plan.name,
+      countryCode: plan.countryCode, ip: ordered.ip, port: ordered.port,
+      username: ordered.username, password: ordered.password, protocol: 'socks5',
+      status: ordered.status, resetToken: ordered.resetToken, priceUsd: trf.priceUsd,
+      createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + trf.time * 1000).toISOString()
+    });
+    dbInstance.log('info', 'proxy', `Mobile proxy provisioned after payment: ${plan.name} for user ${txn.userId} (port ${ordered.portId}).`);
+  }
+
+  /**
    * Pays for a package straight from the user's wallet balance: debits the
    * wallet, creates an active order, and reserves the Proxy-Seller allocation.
    */
@@ -502,6 +593,17 @@ export class PaymentService {
     if (txn.purpose === 'wallet') {
       db.updateTransaction(txn.id, { status: 'completed' });
       db.creditWallet(txn.userId, txn.amountUsd, `Wallet top-up via ${txn.gateway}`);
+      return true;
+    }
+
+    // Mobile proxy purchase: provision the LTESocks port after payment.
+    if (txn.purpose === 'mobile') {
+      db.updateTransaction(txn.id, { status: 'completed' });
+      try {
+        await this.provisionMobileForTxn(txn);
+      } catch (e: any) {
+        db.log('error', 'proxy', `Mobile proxy provision failed after payment (txn ${txn.id}): ${e.message}`);
+      }
       return true;
     }
 

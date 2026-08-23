@@ -795,6 +795,30 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
   }
 });
 
+// Buy a mobile proxy via a payment gateway (checkout, like residential).
+app.post('/api/mobile/checkout', authenticateToken, async (req, res) => {
+  const { planId, tarificationIndex, gateway, custPhone } = req.body;
+  if (!planId || tarificationIndex === undefined || !gateway) {
+    return res.status(400).json({ error: 'planId, tarificationIndex and gateway are required.' });
+  }
+  if (gateway === 'paystation' && !String(custPhone || '').trim()) {
+    return res.status(400).json({ error: 'A phone number is required for BDT Payment.' });
+  }
+  if (!LTESocksService.isConfigured()) {
+    return res.status(400).json({ error: 'Mobile proxies are not available right now.' });
+  }
+  try {
+    const session = await PaymentService.createMobileCheckoutSession({
+      userId: req.user!.id, userEmail: req.user!.email,
+      planId, tarificationIndex: Number(tarificationIndex), gateway,
+      appUrl: publicBaseUrl(req), custPhone: custPhone ? String(custPhone) : undefined
+    });
+    res.json(session);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Failed to start mobile checkout.' });
+  }
+});
+
 // Rotate the mobile IP.
 app.post('/api/mobile/:id/reset', authenticateToken, async (req, res) => {
   const mp = dbInstance.getMobileProxyById(req.params.id);
@@ -861,8 +885,9 @@ const zinipayReturn = async (req: express.Request, res: express.Response) => {
   } catch (e: any) {
     dbInstance.log('error', 'payment', `ZiniPay return handler error: ${e.message}`);
   }
-  // orderId empty ⇒ this was a wallet top-up, not a package purchase.
-  res.redirect(ok ? (orderId ? '/?checkout=success' : '/?checkout=topup') : '/?checkout=pending');
+  // Only a wallet top-up shows the "topped up" banner; orders & mobile show success.
+  const purpose = dbInstance.getTransactions().find(t => t.providerInvoiceId === invoiceId)?.purpose;
+  res.redirect(ok ? (purpose === 'wallet' ? '/?checkout=topup' : '/?checkout=success') : '/?checkout=pending');
 };
 app.get('/api/payment/zinipay/return', zinipayReturn);
 app.get('/api/payment/zinipay/return/:txn', zinipayReturn);
@@ -902,7 +927,10 @@ const paystationCallback = async (req: express.Request, res: express.Response) =
   } catch (e: any) {
     dbInstance.log('error', 'payment', `PayStation callback error: ${e.message}`);
   }
-  if (result.ok) return res.redirect(result.orderId ? '/?checkout=success' : '/?checkout=topup');
+  if (result.ok) {
+    const purpose = dbInstance.getTransactions().find(t => t.providerInvoiceId === invoiceNumber)?.purpose;
+    return res.redirect(purpose === 'wallet' ? '/?checkout=topup' : '/?checkout=success');
+  }
 
   // The customer has RETURNED to us without a confirmed payment. PayStation's
   // methods (bKash / Nagad / card) settle instantly, so at this point the
@@ -943,7 +971,10 @@ const cryptomusReturn = async (req: express.Request, res: express.Response) => {
   } catch (e: any) {
     dbInstance.log('error', 'payment', `Cryptomus return error: ${e.message}`);
   }
-  if (result.ok) return res.redirect(result.orderId ? '/?checkout=success' : '/?checkout=topup');
+  if (result.ok) {
+    const purpose = dbInstance.getTransactions().find(t => t.providerInvoiceId === orderId)?.purpose;
+    return res.redirect(purpose === 'wallet' ? '/?checkout=topup' : '/?checkout=success');
+  }
   if (CryptomusService.isFailedStatus(result.status)) return res.redirect('/?checkout=failed');
   res.redirect('/?checkout=pending');
 };
