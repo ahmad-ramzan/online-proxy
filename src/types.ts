@@ -227,6 +227,7 @@ export interface PaymentSettings {
   ltesocksCountries?: string;    // comma-separated ISO-2 codes shown in the Mobile tab
   ltesocksPrices?: string;       // custom resale prices "days:usd" e.g. "7:4.10, 15:8.15, 30:15.75"
   ltesocksMaxSpeed?: number;     // displayed max speed (mbit/s) on mobile cards
+  ltesocksAvailablePlans?: string; // comma-separated plan-name fragments forced "in stock" (blank = live availability)
 }
 
 export interface WebsiteSettings {

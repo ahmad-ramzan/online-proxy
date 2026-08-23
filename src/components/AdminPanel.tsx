@@ -1270,6 +1270,17 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   />
                   <p className="text-[10px] text-slate-500">Custom resale price per duration (overrides LTESocks pass-through). Format <span className="text-slate-400">days:usd</span>, e.g. <span className="text-slate-400">7:4.10, 15:8.15, 30:15.75</span>.</p>
                 </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">In-Stock Plans (name fragments, comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="Bell Mobility, T-Mobile, Deutsche Telekom"
+                    value={paymentSettings.ltesocksAvailablePlans || ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksAvailablePlans: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                  <p className="text-[10px] text-slate-500">Plans whose name contains any of these show as <span className="text-green-400">available</span>; all others show <span className="text-red-400">out of stock</span>. Leave blank to use live LTESocks availability. Available plans are sorted to the top.</p>
+                </div>
               </div>
               <p className="text-[10px] text-slate-500 leading-relaxed">
                 Get your token from the <a href="https://ltesocks.io" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">LTESocks dashboard</a> → API. Powers the client's <span className="text-slate-400">Mobile Proxies</span> tab (pass-through pricing, paid from wallet). Divisor converts LTESocks plan prices to USD (100 = prices are in cents). Keep your LTESocks account funded so orders succeed.

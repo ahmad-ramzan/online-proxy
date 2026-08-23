@@ -712,9 +712,20 @@ app.get('/api/mobile/plans', authenticateToken, async (req, res) => {
     // Only expose the admin-allowed countries (comma-separated ISO-2 codes).
     const allowed = ((dbInstance.getPaymentSettings() as any).ltesocksCountries || 'DE, FR, CA, GB, AU')
       .split(',').map((c: string) => c.trim().toUpperCase()).filter(Boolean);
-    const plans = allowed.length
+    const filtered = allowed.length
       ? all.filter(p => allowed.includes((p.countryCode || '').toUpperCase()))
       : all;
+    // Admin can force which plans show "in stock" by name fragment; blank = live availability.
+    const availFrags = ((dbInstance.getPaymentSettings() as any).ltesocksAvailablePlans || '')
+      .split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+    const plans = filtered.map(p => ({
+      ...p,
+      inStock: availFrags.length
+        ? availFrags.some((frag: string) => (p.name || '').toLowerCase().includes(frag))
+        : p.availablePorts > 0
+    }));
+    // Available plans first, then by name.
+    plans.sort((a, b) => (b.inStock ? 1 : 0) - (a.inStock ? 1 : 0) || a.name.localeCompare(b.name));
     const maxSpeed = (dbInstance.getPaymentSettings() as any).ltesocksMaxSpeed || 30;
     res.json({ configured: true, plans, maxSpeed });
   } catch (e: any) {

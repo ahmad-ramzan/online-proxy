@@ -218,7 +218,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
               .filter((x: any) => x.t.time >= MIN_TIME);
             const idx = selDur[plan.id] ?? (visT[0]?.i ?? 0);
             const trf = plan.tarifications[idx];
-            const inStock = plan.availablePorts > 0;
+            const inStock = plan.inStock !== undefined ? plan.inStock : plan.availablePorts > 0;
             const operator = operatorFromName(plan.name);
             return (
               <div key={plan.id} className="bg-slate-950/60 border border-slate-850 hover:border-violet-500/40 rounded-2xl p-5 flex flex-col justify-between transition-colors">
