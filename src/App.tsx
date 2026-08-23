@@ -107,6 +107,7 @@ export default function App() {
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletDue, setWalletDue] = useState(0);
   const [showTopup, setShowTopup] = useState(false);
+  const [topupAmount, setTopupAmount] = useState<number | undefined>(undefined);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportCategory, setSupportCategory] = useState('technical');
   const [supportTickets, setSupportTickets] = useState<import('./types').SupportTicket[]>([]);
@@ -1387,7 +1388,7 @@ export default function App() {
                 <MobileProxies
                   walletBalance={walletBalance}
                   onBalanceChange={refreshWallet}
-                  onTopUp={() => setShowTopup(true)}
+                  onTopUp={(amount?: number) => { setTopupAmount(amount); setShowTopup(true); }}
                 />
               )}
 
@@ -1838,7 +1839,7 @@ export default function App() {
 
       {/* Wallet Top-Up Modal */}
       {showTopup && (
-        <TopUpModal showZinipay={zinipayEnabled} onClose={() => setShowTopup(false)} />
+        <TopUpModal showZinipay={zinipayEnabled} defaultAmount={topupAmount} onClose={() => { setShowTopup(false); setTopupAmount(undefined); }} />
       )}
 
       {/* Support Dialog Modal */}

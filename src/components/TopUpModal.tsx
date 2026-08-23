@@ -9,13 +9,14 @@ import { api } from '../services/api';
 
 interface TopUpModalProps {
   showZinipay?: boolean;
+  defaultAmount?: number;
   onClose: () => void;
 }
 
 const PRESETS = [5, 10, 20, 50];
 
-export default function TopUpModal({ showZinipay = false, onClose }: TopUpModalProps) {
-  const [amount, setAmount] = useState('10');
+export default function TopUpModal({ showZinipay = false, defaultAmount, onClose }: TopUpModalProps) {
+  const [amount, setAmount] = useState(defaultAmount && defaultAmount > 0 ? String(defaultAmount) : '10');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

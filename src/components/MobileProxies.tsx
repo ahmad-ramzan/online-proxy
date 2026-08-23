@@ -11,7 +11,7 @@ import { copyToClipboard } from '../utils/clipboard';
 interface MobileProxiesProps {
   walletBalance: number;
   onBalanceChange: () => void;
-  onTopUp: () => void;
+  onTopUp: (amount?: number) => void;
 }
 
 const flagEmoji = (code: string) => {
@@ -98,7 +98,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
     const idx = selDur[plan.id] ?? 0;
     const trf = plan.tarifications[idx];
     if (!trf) return;
-    if (walletBalance < trf.priceUsd) { onTopUp(); return; }
+    if (walletBalance < trf.priceUsd) { onTopUp(trf.priceUsd); return; }
     setError(''); setOrdering(plan.id);
     try {
       await api.mobile.order(plan.id, idx);
