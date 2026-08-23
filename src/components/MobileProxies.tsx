@@ -30,6 +30,9 @@ const operatorFromName = (name: string) => {
   return s || '—';
 };
 
+// Only offer durations of 7 days or longer (hide the 1-hour / 1-day options).
+const MIN_TIME = 7 * 86400;
+
 const durationLabel = (secs: number) => {
   if (secs < 3600) return `${Math.round(secs / 60)} min`;
   if (secs < 86400) return `${Math.round(secs / 3600)} hour${secs >= 7200 ? 's' : ''}`;
@@ -83,7 +86,8 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
   const shown = plans.filter(p =>
     (country === 'ALL' || p.countryCode === country) &&
     (operator === 'ALL' || operatorFromName(p.name) === operator) &&
-    (ptype === 'ALL' || ptype === 'Private')
+    (ptype === 'ALL' || ptype === 'Private') &&
+    (p.tarifications || []).some((t: any) => t.time >= MIN_TIME)
   );
 
   const order = async (plan: any) => {
@@ -206,7 +210,11 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {shown.map((plan) => {
-            const idx = selDur[plan.id] ?? 0;
+            // Keep the original index (used when ordering) but only show 7d+.
+            const visT = (plan.tarifications || [])
+              .map((t: any, i: number) => ({ t, i }))
+              .filter((x: any) => x.t.time >= MIN_TIME);
+            const idx = selDur[plan.id] ?? (visT[0]?.i ?? 0);
             const trf = plan.tarifications[idx];
             const inStock = plan.availablePorts > 0;
             const operator = operatorFromName(plan.name);
@@ -234,7 +242,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
                     onChange={(e) => setSelDur({ ...selDur, [plan.id]: parseInt(e.target.value) })}
                     className="w-full mt-4 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer"
                   >
-                    {plan.tarifications.map((t: any, i: number) => (
+                    {visT.map(({ t, i }: any) => (
                       <option key={i} value={i}>{durationLabel(t.time)} · {mobileTrafficLabel(t.trafficMb)} · ${t.priceUsd}</option>
                     ))}
                   </select>
