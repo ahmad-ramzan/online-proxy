@@ -406,7 +406,7 @@ export default function App() {
   }
 
   const pendingDueUsd = myTransactions
-    .filter(t => t.status === 'pending' && (t.purpose || 'order') === 'order')
+    .filter(t => t.status === 'pending')
     .reduce((sum, t) => sum + t.amountUsd, 0);
 
   // If in custom modular simulation checkout screen
