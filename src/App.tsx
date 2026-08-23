@@ -105,6 +105,7 @@ export default function App() {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<{ type: 'success' | 'pending' | 'cancelled' | 'failed'; text: string } | null>(null);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [walletDue, setWalletDue] = useState(0);
   const [showTopup, setShowTopup] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportCategory, setSupportCategory] = useState('technical');
@@ -209,7 +210,7 @@ export default function App() {
         setMyTransactions(txns);
         // Usage is fetched separately so slow provider calls never block the ledger.
         api.proxy.getUsage().then(setUsage).catch(() => {});
-        api.wallet.get().then(w => setWalletBalance(w.balance)).catch(() => {});
+        api.wallet.get().then(w => { setWalletBalance(w.balance); setWalletDue(w.due || 0); }).catch(() => {});
 
         // Redirect to panel if logged in
         setPage(activeUser.role === 'admin' ? 'admin' : 'dashboard');
@@ -273,13 +274,13 @@ export default function App() {
       setMyTransactions(txns);
       // Usage is fetched separately so slow provider calls never block the ledger.
       api.proxy.getUsage().then(setUsage).catch(() => {});
-      api.wallet.get().then(w => setWalletBalance(w.balance)).catch(() => {});
+      api.wallet.get().then(w => { setWalletBalance(w.balance); setWalletDue(w.due || 0); }).catch(() => {});
     } catch (e) {
       console.error('Ledger sync failed:', e);
     }
   };
 
-  const refreshWallet = () => api.wallet.get().then(w => setWalletBalance(w.balance)).catch(() => {});
+  const refreshWallet = () => api.wallet.get().then(w => { setWalletBalance(w.balance); setWalletDue(w.due || 0); }).catch(() => {});
 
   // Action: Standard Email/Password Auth Login
   const handleLogin = async (e: React.FormEvent) => {
@@ -1288,6 +1289,12 @@ export default function App() {
                     </span>
                     <span className="mt-1 flex items-center gap-1.5 text-[11px] sm:text-xs font-black whitespace-nowrap">
                       <span className="text-emerald-400">${walletBalance.toFixed(2)}</span>
+                      {walletDue > 0 && (
+                        <>
+                          <span className="text-slate-500">·</span>
+                          <span className="text-red-400">Due: ${walletDue.toFixed(2)}</span>
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>

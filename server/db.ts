@@ -318,7 +318,15 @@ class Database {
     const db = this.read();
     const user = db.users.find(u => u.id === userId);
     if (!user) return 0;
-    const newBalance = Math.round(((user.walletBalance || 0) + amountUsd) * 100) / 100;
+    // A top-up first clears any outstanding due, then adds the remainder to the balance.
+    let credit = Math.round(amountUsd * 100) / 100;
+    const due = user.walletDue || 0;
+    if (due > 0) {
+      const payoff = Math.min(credit, due);
+      user.walletDue = Math.round((due - payoff) * 100) / 100;
+      credit = Math.round((credit - payoff) * 100) / 100;
+    }
+    const newBalance = Math.round(((user.walletBalance || 0) + credit) * 100) / 100;
     user.walletBalance = newBalance;
     if (!db.walletTransactions) db.walletTransactions = [];
     db.walletTransactions.push({
@@ -327,8 +335,33 @@ class Database {
       balanceAfter: newBalance, description, createdAt: new Date().toISOString()
     });
     this.write(db);
-    this.log('info', 'payment', `Wallet credited $${amountUsd} for ${user.email} → balance $${newBalance}`);
+    this.log('info', 'payment', `Wallet credited $${amountUsd} for ${user.email} → balance $${newBalance}, due $${user.walletDue || 0}`);
     return newBalance;
+  }
+
+  /**
+   * Charge a purchase against the wallet, allowing partial credit: the balance
+   * is spent first and any shortfall becomes "due" (owed). Always succeeds.
+   */
+  public chargeForPurchase(userId: string, amountUsd: number, description: string): { balance: number; due: number } {
+    const db = this.read();
+    const user = db.users.find(u => u.id === userId);
+    if (!user) return { balance: 0, due: 0 };
+    const price = Math.round(amountUsd * 100) / 100;
+    const bal = user.walletBalance || 0;
+    const fromBalance = Math.min(bal, price);
+    const shortfall = Math.round((price - fromBalance) * 100) / 100;
+    user.walletBalance = Math.round((bal - fromBalance) * 100) / 100;
+    if (shortfall > 0) user.walletDue = Math.round(((user.walletDue || 0) + shortfall) * 100) / 100;
+    if (!db.walletTransactions) db.walletTransactions = [];
+    db.walletTransactions.push({
+      id: `wtx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId, type: 'debit', amountUsd: price,
+      balanceAfter: user.walletBalance, description, createdAt: new Date().toISOString()
+    });
+    this.write(db);
+    this.log('info', 'payment', `Purchase charged $${price} for ${user.email} → balance $${user.walletBalance}, due $${user.walletDue || 0}`);
+    return { balance: user.walletBalance, due: user.walletDue || 0 };
   }
 
   /** Debit the wallet if funds suffice. Returns {ok, balance}. */

@@ -659,6 +659,7 @@ app.get('/api/wallet', authenticateToken, (req, res) => {
   const user = dbInstance.getUsers().find(u => u.id === req.user!.id);
   res.json({
     balance: user?.walletBalance || 0,
+    due: user?.walletDue || 0,
     transactions: dbInstance.getWalletTransactionsByUser(req.user!.id)
   });
 });
@@ -754,9 +755,8 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
     const trf = plan.tarifications[Number(tarificationIndex)];
     if (!trf) return res.status(400).json({ error: 'Invalid duration selected.' });
 
-    // Charge the wallet first; refund if the upstream order fails.
-    const debit = dbInstance.debitWallet(req.user!.id, trf.priceUsd, `Mobile proxy: ${plan.name}`);
-    if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
+    // Charge the wallet (partial credit allowed; shortfall becomes due). Refund if the upstream order fails.
+    dbInstance.chargeForPurchase(req.user!.id, trf.priceUsd, `Mobile proxy: ${plan.name}`);
 
     let ordered;
     try {

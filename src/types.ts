@@ -12,6 +12,7 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   walletBalance?: number; // prepaid wallet balance in USD
+  walletDue?: number;     // amount owed when a purchase exceeded the balance (partial credit)
 }
 
 // A customer's mobile (LTESocks) proxy — one "port" ordered on their behalf.

@@ -114,7 +114,7 @@ export default function CheckoutModal({ pkg, loading, showZinipay = false, walle
 
         {/* Payment method buttons */}
         <div className="mt-5 space-y-2.5">
-          {onWalletPay && walletBalance >= finalPrice && (
+          {onWalletPay && (
             <button
               type="button"
               onClick={() => onWalletPay(applied?.valid ? code.trim() : '')}

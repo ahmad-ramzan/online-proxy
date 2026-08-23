@@ -239,7 +239,7 @@ export const api = {
 
   // Prepaid wallet (USD)
   wallet: {
-    async get(): Promise<{ balance: number; transactions: { id: string; type: 'topup' | 'debit'; amountUsd: number; balanceAfter: number; description: string; createdAt: string }[] }> {
+    async get(): Promise<{ balance: number; due: number; transactions: { id: string; type: 'topup' | 'debit'; amountUsd: number; balanceAfter: number; description: string; createdAt: string }[] }> {
       const res = await fetch(`${API_BASE}/api/wallet`, { headers: getHeaders() });
       if (!res.ok) throw new Error('Failed to load wallet');
       return res.json();
