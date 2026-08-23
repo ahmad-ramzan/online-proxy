@@ -182,13 +182,13 @@ export const api = {
 
   // Pricing & Payment Sessions
   payment: {
-    async validateCoupon(code: string, packageId: string): Promise<{
+    async validateCoupon(code: string, packageId: string, amountUsd?: number): Promise<{
       valid: boolean; couponCode?: string; discountUsd?: number; finalUsd?: number; originalUsd: number; message: string;
     }> {
       const res = await fetch(`${API_BASE}/api/payment/validate-coupon`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ code, packageId })
+        body: JSON.stringify({ code, packageId, amountUsd })
       });
       if (!res.ok) {
         const err = await res.json();
@@ -274,18 +274,18 @@ export const api = {
       if (!res.ok) throw new Error('Failed to load mobile proxies');
       return (await res.json()).proxies;
     },
-    async checkout(planId: string, tarificationIndex: number, gateway: 'credit_card' | 'paystation' | 'cryptomus', custPhone?: string): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
+    async checkout(planId: string, tarificationIndex: number, gateway: 'credit_card' | 'paystation' | 'cryptomus', custPhone?: string, couponCode?: string): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
       const res = await fetch(`${API_BASE}/api/mobile/checkout`, {
         method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ planId, tarificationIndex, gateway, custPhone })
+        body: JSON.stringify({ planId, tarificationIndex, gateway, custPhone, couponCode })
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Mobile checkout failed'); }
       return res.json();
     },
-    async order(planId: string, tarificationIndex: number): Promise<{ proxy: any }> {
+    async order(planId: string, tarificationIndex: number, couponCode?: string): Promise<{ proxy: any }> {
       const res = await fetch(`${API_BASE}/api/mobile/order`, {
         method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({ planId, tarificationIndex })
+        body: JSON.stringify({ planId, tarificationIndex, couponCode })
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Mobile order failed'); }
       return res.json();

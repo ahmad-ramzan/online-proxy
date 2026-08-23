@@ -1848,17 +1848,16 @@ export default function App() {
         <CheckoutModal
           pkg={mobileCheckout.pkg}
           subtitle={mobileCheckout.subtitle}
-          allowCoupon={false}
           loading={actionLoading}
           showZinipay={zinipayEnabled}
           onClose={() => setMobileCheckout(null)}
           walletBalance={walletBalance}
-          onWalletPay={async () => {
+          onWalletPay={async (couponCode) => {
             const mc = mobileCheckout;
             if (!mc) return;
             setActionLoading(true);
             try {
-              await api.mobile.order(mc.planId, mc.tarifIndex);
+              await api.mobile.order(mc.planId, mc.tarifIndex, couponCode || undefined);
               setMobileCheckout(null);
               await syncLedgerData();
               await refreshWallet();
@@ -1869,12 +1868,12 @@ export default function App() {
               setActionLoading(false);
             }
           }}
-          onProceed={async (_couponCode, gateway, phone) => {
+          onProceed={async (couponCode, gateway, phone) => {
             const mc = mobileCheckout;
             if (!mc) return;
             setActionLoading(true);
             try {
-              const res = await api.mobile.checkout(mc.planId, mc.tarifIndex, gateway, phone);
+              const res = await api.mobile.checkout(mc.planId, mc.tarifIndex, gateway, phone, couponCode || undefined);
               if (res?.checkoutUrl) {
                 window.location.href = res.checkoutUrl;
               } else {

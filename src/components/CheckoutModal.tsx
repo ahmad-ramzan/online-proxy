@@ -32,7 +32,7 @@ export default function CheckoutModal({ pkg, loading, showZinipay = false, walle
     if (!c) { setApplied(null); return; }
     setChecking(true);
     try {
-      const r = await api.payment.validateCoupon(c, pkg.id);
+      const r = await api.payment.validateCoupon(c, pkg.id, pkg.priceUsd);
       setApplied({ valid: r.valid, finalUsd: r.finalUsd, discountUsd: r.discountUsd, message: r.message });
     } catch (e: any) {
       setApplied({ valid: false, message: e.message || 'Could not validate coupon.' });

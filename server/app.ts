@@ -742,7 +742,7 @@ app.get('/api/mobile/my', authenticateToken, (req, res) => {
 
 // Order a mobile proxy, paying from the wallet balance.
 app.post('/api/mobile/order', authenticateToken, async (req, res) => {
-  const { planId, tarificationIndex } = req.body;
+  const { planId, tarificationIndex, couponCode } = req.body;
   if (!planId || tarificationIndex === undefined) {
     return res.status(400).json({ error: 'planId and tarificationIndex are required.' });
   }
@@ -756,16 +756,26 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
     const trf = plan.tarifications[Number(tarificationIndex)];
     if (!trf) return res.status(400).json({ error: 'Invalid duration selected.' });
 
+    // Apply a coupon (if any) to the wallet charge.
+    const couponEval = PaymentService.evaluateCoupon(trf.priceUsd, couponCode ? String(couponCode) : undefined);
+    if (couponEval.error) return res.status(400).json({ error: couponEval.error });
+    const chargeUsd = couponEval.finalUsd;
+
     // Charge the wallet first; refund if the upstream order fails.
-    const debit = dbInstance.debitWallet(req.user!.id, trf.priceUsd, `Mobile proxy: ${plan.name}`);
+    const debit = dbInstance.debitWallet(req.user!.id, chargeUsd, `Mobile proxy: ${plan.name}`);
     if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
 
     let ordered;
     try {
       ordered = await LTESocksService.orderPort(planId, { time: trf.time, traffic: trf.trafficMb, price: trf.priceRaw });
     } catch (e: any) {
-      dbInstance.creditWallet(req.user!.id, trf.priceUsd, `Refund — mobile proxy order failed`);
+      dbInstance.creditWallet(req.user!.id, chargeUsd, `Refund — mobile proxy order failed`);
       return res.status(502).json({ error: `Could not create the mobile proxy (${e.message}). Your wallet was refunded.` });
+    }
+    // Consume the coupon only after a successful order.
+    if (couponEval.couponCode) {
+      const coupon = dbInstance.findCouponByCode(couponEval.couponCode);
+      if (coupon) dbInstance.updateCoupon(coupon.id, { usedCount: coupon.usedCount + 1 });
     }
 
     const s = dbInstance.getPaymentSettings();
@@ -784,7 +794,7 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
       protocol: proto === 'http' ? 'http' : 'socks5',
       status: ordered.status,
       resetToken: ordered.resetToken,
-      priceUsd: trf.priceUsd,
+      priceUsd: chargeUsd,
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + trf.time * 1000).toISOString()
     });
@@ -797,7 +807,7 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
 
 // Buy a mobile proxy via a payment gateway (checkout, like residential).
 app.post('/api/mobile/checkout', authenticateToken, async (req, res) => {
-  const { planId, tarificationIndex, gateway, custPhone } = req.body;
+  const { planId, tarificationIndex, gateway, custPhone, couponCode } = req.body;
   if (!planId || tarificationIndex === undefined || !gateway) {
     return res.status(400).json({ error: 'planId, tarificationIndex and gateway are required.' });
   }
@@ -811,7 +821,8 @@ app.post('/api/mobile/checkout', authenticateToken, async (req, res) => {
     const session = await PaymentService.createMobileCheckoutSession({
       userId: req.user!.id, userEmail: req.user!.email,
       planId, tarificationIndex: Number(tarificationIndex), gateway,
-      appUrl: publicBaseUrl(req), custPhone: custPhone ? String(custPhone) : undefined
+      appUrl: publicBaseUrl(req), custPhone: custPhone ? String(custPhone) : undefined,
+      couponCode: couponCode ? String(couponCode) : undefined
     });
     res.json(session);
   } catch (error: any) {
@@ -847,24 +858,27 @@ app.delete('/api/mobile/:id', authenticateToken, async (req, res) => {
 
 // Validate a coupon against a package (for client-side preview). Auth required.
 app.post('/api/payment/validate-coupon', authenticateToken, (req, res) => {
-  const { code, packageId } = req.body;
-  if (!code || !packageId) {
+  const { code, packageId, amountUsd } = req.body;
+  if (!code || (!packageId && amountUsd === undefined)) {
     return res.status(400).json({ error: 'Coupon code and package are required.' });
   }
-  const pkg = dbInstance.getPackages().find(p => p.id === packageId);
-  if (!pkg) {
+  // Prefer a real package price; fall back to an explicit amount (e.g. a mobile
+  // proxy, which has no catalog package).
+  const pkg = packageId ? dbInstance.getPackages().find(p => p.id === packageId) : undefined;
+  const baseUsd = pkg ? pkg.priceUsd : Number(amountUsd);
+  if (!(baseUsd >= 0)) {
     return res.status(404).json({ error: 'Package not found.' });
   }
-  const result = PaymentService.evaluateCoupon(pkg.priceUsd, String(code));
+  const result = PaymentService.evaluateCoupon(baseUsd, String(code));
   if (result.error) {
-    return res.status(200).json({ valid: false, message: result.error, originalUsd: pkg.priceUsd });
+    return res.status(200).json({ valid: false, message: result.error, originalUsd: baseUsd });
   }
   res.json({
     valid: true,
     couponCode: result.couponCode,
     discountUsd: result.discountUsd,
     finalUsd: result.finalUsd,
-    originalUsd: pkg.priceUsd,
+    originalUsd: baseUsd,
     message: `Coupon applied — you save $${result.discountUsd}.`
   });
 });
