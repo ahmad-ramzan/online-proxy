@@ -225,6 +225,7 @@ export interface PaymentSettings {
   ltesocksBaseUrl?: string;      // default https://api.ltesocks.io/v2
   ltesocksPriceDivisor?: number; // LTESocks plan price unit → USD (default 100 = cents)
   ltesocksCountries?: string;    // comma-separated ISO-2 codes shown in the Mobile tab
+  ltesocksPrices?: string;       // custom resale prices "days:usd" e.g. "7:4.10, 15:8.15, 30:15.75"
 }
 
 export interface WebsiteSettings {

@@ -1243,11 +1243,22 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   <label className="text-[9px] font-bold text-slate-500 uppercase block">Mobile Proxy Countries (ISO-2, comma-separated)</label>
                   <input
                     type="text"
-                    placeholder="DE, FR, CA, GB, AU"
+                    placeholder="US, DE, FR, CA, GB, AU"
                     value={paymentSettings.ltesocksCountries || ''}
                     onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksCountries: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                   />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Mobile Prices — days:USD (comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="7:4.10, 15:8.15, 30:15.75"
+                    value={paymentSettings.ltesocksPrices || ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksPrices: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                  <p className="text-[10px] text-slate-500">Custom resale price per duration (overrides LTESocks pass-through). Format <span className="text-slate-400">days:usd</span>, e.g. <span className="text-slate-400">7:4.10, 15:8.15, 30:15.75</span>.</p>
                 </div>
               </div>
               <p className="text-[10px] text-slate-500 leading-relaxed">

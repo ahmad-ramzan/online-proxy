@@ -80,9 +80,22 @@ export class LTESocksService {
     return { login: d.login, balance: d.balance, portsCount: d.portsCount, portsLimit: d.portsLimit };
   }
 
-  /** Available mobile plans, prices converted to USD (pass-through). */
+  /** Parse the admin "days:usd" price overrides into a { days: price } map. */
+  private static priceOverrides(): Record<number, number> {
+    const raw = (dbInstance.getPaymentSettings() as any).ltesocksPrices || '';
+    const map: Record<number, number> = {};
+    String(raw).split(',').forEach((pair: string) => {
+      const [d, p] = pair.split(':').map(s => s.trim());
+      const days = parseInt(d, 10), price = parseFloat(p);
+      if (Number.isFinite(days) && Number.isFinite(price)) map[days] = price;
+    });
+    return map;
+  }
+
+  /** Available mobile plans, priced in USD (custom overrides, else pass-through). */
   public static async getPlans(): Promise<LtePlan[]> {
     const { divisor } = this.getConfig();
+    const overrides = this.priceOverrides();
     const raw = await this.req('GET', '/plans');
     const list: any[] = Array.isArray(raw) ? raw : (raw.data || raw.plans || []);
     return list
@@ -94,12 +107,16 @@ export class LTESocksService {
         available: p.available !== false,
         availablePorts: p.availablePorts || 0,
         vpnAccess: !!p.vpnAccess,
-        tarifications: (p.tarifications || []).map((t: LteTarification) => ({
-          time: t.time,
-          trafficMb: t.traffic,
-          priceRaw: t.price,
-          priceUsd: Math.round((t.price / divisor) * 100) / 100
-        }))
+        tarifications: (p.tarifications || []).map((t: LteTarification) => {
+          const days = Math.round(t.time / 86400);
+          const override = overrides[days];
+          return {
+            time: t.time,
+            trafficMb: t.traffic,
+            priceRaw: t.price,
+            priceUsd: override !== undefined ? override : Math.round((t.price / divisor) * 100) / 100
+          };
+        })
       }));
   }
 
