@@ -1239,6 +1239,16 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Max Speed (mbit/s)</label>
+                  <input
+                    type="number"
+                    placeholder="30"
+                    value={paymentSettings.ltesocksMaxSpeed ?? ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksMaxSpeed: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  />
+                </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-[9px] font-bold text-slate-500 uppercase block">Mobile Proxy Countries (ISO-2, comma-separated)</label>
                   <input

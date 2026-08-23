@@ -120,7 +120,8 @@ const DEFAULT_DB: DatabaseSchema = {
     ltesocksBaseUrl: 'https://api.ltesocks.io/v2',
     ltesocksPriceDivisor: 100,
     ltesocksCountries: 'US, DE, FR, CA, GB, AU',
-    ltesocksPrices: '7:4.10, 15:8.15, 30:15.75'
+    ltesocksPrices: '7:4.10, 15:8.15, 30:15.75',
+    ltesocksMaxSpeed: 30
   },
   websiteSettings: {
     siteName: 'ProxyGPT Online',

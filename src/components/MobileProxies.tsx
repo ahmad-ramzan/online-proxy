@@ -49,6 +49,7 @@ const mobileTrafficLabel = (mb: number) => {
 
 export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp }: MobileProxiesProps) {
   const [configured, setConfigured] = useState(true);
+  const [maxSpeed, setMaxSpeed] = useState(30);
   const [plans, setPlans] = useState<any[]>([]);
   const [mine, setMine] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +66,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
     try {
       const [p, m] = await Promise.all([api.mobile.getPlans(), api.mobile.getMy()]);
       setConfigured(p.configured);
+      if (p.maxSpeed) setMaxSpeed(p.maxSpeed);
       setPlans(p.plans || []);
       setMine(m || []);
     } catch (e: any) {
@@ -225,16 +227,21 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
                     <span className="text-2xl">{flagEmoji(plan.countryCode)}</span>
                     <p className="text-sm font-bold text-white leading-snug">{plan.name}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-y-2 text-[11px]">
-                    <div><span className="text-slate-500">Country:</span> <span className="text-slate-200 font-semibold">{plan.countryCode}</span></div>
-                    <div className="text-right"><span className="text-slate-500">IP Pool:</span> <span className="text-slate-200 font-semibold">{plan.availablePorts}</span></div>
-                    <div><span className="text-slate-500">Operator:</span> <span className="text-slate-200 font-semibold">{operator}</span></div>
-                    <div className="text-right"><span className="text-slate-500">VPN:</span> <span className="text-slate-200 font-semibold">{plan.vpnAccess ? 'Yes' : 'No'}</span></div>
-                    <div><span className="text-slate-500">Type:</span> <span className="text-slate-200 font-semibold">Private</span></div>
-                    <div className="text-right flex items-center justify-end gap-1.5">
-                      <span className="text-slate-500">Stock:</span>
-                      <span className={`w-2 h-2 rounded-full ${inStock ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                      <span className={inStock ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{inStock ? 'available' : 'out'}</span>
+                  <div className="flex justify-between gap-4 text-[11px]">
+                    <div className="space-y-1.5">
+                      <div><span className="text-slate-500">Country:</span> <span className="text-slate-200 font-semibold">{plan.countryCode}</span></div>
+                      <div><span className="text-slate-500">Operator:</span> <span className="text-slate-200 font-semibold">{operator}</span></div>
+                      <div><span className="text-slate-500">Type:</span> <span className="text-slate-200 font-semibold">Private</span></div>
+                    </div>
+                    <div className="space-y-1.5 text-right">
+                      <div><span className="text-slate-500">IP Pool Size:</span> <span className="text-slate-200 font-semibold">{plan.availablePorts}</span></div>
+                      <div><span className="text-slate-500">Max Speed:</span> <span className="text-slate-200 font-semibold">{maxSpeed} mbit/s</span></div>
+                      <div><span className="text-slate-500">IP Change Delay:</span> <span className="text-slate-200 font-semibold">0s</span></div>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="text-slate-500">Stock:</span>
+                        <span className={`w-2 h-2 rounded-full ${inStock ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                        <span className={inStock ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{inStock ? 'available' : 'out'}</span>
+                      </div>
                     </div>
                   </div>
                   <select

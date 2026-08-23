@@ -715,7 +715,8 @@ app.get('/api/mobile/plans', authenticateToken, async (req, res) => {
     const plans = allowed.length
       ? all.filter(p => allowed.includes((p.countryCode || '').toUpperCase()))
       : all;
-    res.json({ configured: true, plans });
+    const maxSpeed = (dbInstance.getPaymentSettings() as any).ltesocksMaxSpeed || 30;
+    res.json({ configured: true, plans, maxSpeed });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Failed to load mobile plans.' });
   }
