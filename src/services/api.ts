@@ -371,6 +371,16 @@ export const api = {
       return data.user;
     },
 
+    async setUserDue(userId: string, due: number): Promise<User> {
+      const res = await fetch(`${API_BASE}/api/admin/users/due`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ userId, due })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to set due'); }
+      return (await res.json()).user;
+    },
+
     async deleteUser(userId: string): Promise<boolean> {
       const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
         method: 'DELETE',

@@ -318,15 +318,8 @@ class Database {
     const db = this.read();
     const user = db.users.find(u => u.id === userId);
     if (!user) return 0;
-    // A top-up first clears any outstanding due, then adds the remainder to the balance.
-    let credit = Math.round(amountUsd * 100) / 100;
-    const due = user.walletDue || 0;
-    if (due > 0) {
-      const payoff = Math.min(credit, due);
-      user.walletDue = Math.round((due - payoff) * 100) / 100;
-      credit = Math.round((credit - payoff) * 100) / 100;
-    }
-    const newBalance = Math.round(((user.walletBalance || 0) + credit) * 100) / 100;
+    // Top-up adds to the balance. "Due" is admin-controlled and untouched here.
+    const newBalance = Math.round(((user.walletBalance || 0) + amountUsd) * 100) / 100;
     user.walletBalance = newBalance;
     if (!db.walletTransactions) db.walletTransactions = [];
     db.walletTransactions.push({
@@ -335,7 +328,7 @@ class Database {
       balanceAfter: newBalance, description, createdAt: new Date().toISOString()
     });
     this.write(db);
-    this.log('info', 'payment', `Wallet credited $${amountUsd} for ${user.email} → balance $${newBalance}, due $${user.walletDue || 0}`);
+    this.log('info', 'payment', `Wallet credited $${amountUsd} for ${user.email} → balance $${newBalance}`);
     return newBalance;
   }
 

@@ -755,8 +755,9 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
     const trf = plan.tarifications[Number(tarificationIndex)];
     if (!trf) return res.status(400).json({ error: 'Invalid duration selected.' });
 
-    // Charge the wallet (partial credit allowed; shortfall becomes due). Refund if the upstream order fails.
-    dbInstance.chargeForPurchase(req.user!.id, trf.priceUsd, `Mobile proxy: ${plan.name}`);
+    // Charge the wallet first; refund if the upstream order fails.
+    const debit = dbInstance.debitWallet(req.user!.id, trf.priceUsd, `Mobile proxy: ${plan.name}`);
+    if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
 
     let ordered;
     try {
@@ -1072,6 +1073,18 @@ app.post('/api/admin/users/status', authenticateToken, requireAdmin, (req, res) 
     `Admin updated status of user ${updated.name} (${updated.email}): ${JSON.stringify(updates)}`
   );
 
+  res.json({ user: updated });
+});
+
+// Admin: set a user's wallet Due (amount owed). Due is admin-controlled — it is
+// never created automatically by purchases.
+app.post('/api/admin/users/due', authenticateToken, requireAdmin, (req, res) => {
+  const { userId, due } = req.body;
+  if (!userId) return res.status(400).json({ error: 'User ID is required.' });
+  const amount = Math.max(0, Math.round((parseFloat(due) || 0) * 100) / 100);
+  const updated = dbInstance.updateUser(userId, { walletDue: amount });
+  if (!updated) return res.status(404).json({ error: 'User profile not found.' });
+  dbInstance.log('security', 'admin', `Admin set wallet Due for ${updated.email} to $${amount}.`);
   res.json({ user: updated });
 });
 

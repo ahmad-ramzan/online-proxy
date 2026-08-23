@@ -158,6 +158,23 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     }
   };
 
+  const handleSetUserDue = async (userId: string, current: number) => {
+    const input = prompt('Set wallet Due (USD) for this user:', String(current || 0));
+    if (input === null) return;
+    const amount = parseFloat(input);
+    if (!Number.isFinite(amount) || amount < 0) { alert('Enter a valid amount (0 or more).'); return; }
+    setActionLoading(true);
+    try {
+      await api.admin.setUserDue(userId, amount);
+      triggerNotify(`Wallet Due set to $${amount.toFixed(2)}.`);
+      await loadAdminData();
+    } catch (e: any) {
+      alert(e.message || 'Failed to set due.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 2. Package Actions
   const handleCreatePackage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -548,6 +565,12 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                           className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-blue-500/10 hover:bg-blue-500/20 text-blue-400"
                         >
                           Password
+                        </button>
+                        <button
+                          onClick={() => handleSetUserDue(usr.id, (usr as any).walletDue || 0)}
+                          className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-400"
+                        >
+                          Due{(usr as any).walletDue ? ` $${((usr as any).walletDue).toFixed(2)}` : ''}
                         </button>
                         <button
                           onClick={() => handleDeleteUser(usr.id)}

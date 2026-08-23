@@ -96,6 +96,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
     const idx = selDur[plan.id] ?? 0;
     const trf = plan.tarifications[idx];
     if (!trf) return;
+    if (walletBalance < trf.priceUsd) { onTopUp(); return; }
     setError(''); setOrdering(plan.id);
     try {
       await api.mobile.order(plan.id, idx);
@@ -261,7 +262,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
                     className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-50 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer"
                   >
                     {ordering === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                    {!inStock ? 'Out of stock' : 'Activate'}
+                    {!inStock ? 'Out of stock' : (trf && walletBalance < trf.priceUsd ? 'Top Up' : 'Activate')}
                   </button>
                 </div>
               </div>

@@ -373,8 +373,8 @@ export class PaymentService {
         : `Sorry, only ${stock.availableGb.toFixed(1)} GB of residential stock is available right now.`);
     }
 
-    // Partial credit allowed: balance is spent first, any shortfall becomes "due".
-    dbInstance.chargeForPurchase(params.userId, finalUsd, `Purchase: ${pkg.name} (${pkg.bandwidthGb} GB)`);
+    const debit = dbInstance.debitWallet(params.userId, finalUsd, `Purchase: ${pkg.name} (${pkg.bandwidthGb} GB)`);
+    if (!debit.ok) throw new Error('Insufficient wallet balance. Please top up your wallet first.');
 
     const newOrder: ProxyOrder = {
       id: `ord_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
