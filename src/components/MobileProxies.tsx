@@ -50,6 +50,7 @@ const mobileTrafficLabel = (mb: number) => {
 export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp }: MobileProxiesProps) {
   const [configured, setConfigured] = useState(true);
   const [maxSpeed, setMaxSpeed] = useState(30);
+  const [stock, setStock] = useState(30);
   const [plans, setPlans] = useState<any[]>([]);
   const [mine, setMine] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +68,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
       const [p, m] = await Promise.all([api.mobile.getPlans(), api.mobile.getMy()]);
       setConfigured(p.configured);
       if (p.maxSpeed) setMaxSpeed(p.maxSpeed);
+      if (p.stock !== undefined) setStock(p.stock);
       setPlans(p.plans || []);
       setMine(m || []);
     } catch (e: any) {
@@ -234,7 +236,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
                       <div><span className="text-slate-500">Type:</span> <span className="text-slate-200 font-semibold">Private</span></div>
                     </div>
                     <div className="space-y-1.5 text-right">
-                      <div><span className="text-slate-500">IP Pool Size:</span> <span className="text-slate-200 font-semibold">{plan.availablePorts}</span></div>
+                      <div><span className="text-slate-500">IP Pool Size:</span> <span className="text-slate-200 font-semibold">{stock}</span></div>
                       <div><span className="text-slate-500">Max Speed:</span> <span className="text-slate-200 font-semibold">{maxSpeed} mbit/s</span></div>
                       <div><span className="text-slate-500">IP Change Delay:</span> <span className="text-slate-200 font-semibold">0s</span></div>
                       <div className="flex items-center justify-end gap-1.5">
@@ -262,7 +264,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp 
                     className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-50 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer"
                   >
                     {ordering === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                    {!inStock ? 'Out of stock' : (trf && walletBalance < trf.priceUsd ? 'Top Up' : 'Activate')}
+                    {!inStock ? 'Out of stock' : 'Buy Now'}
                   </button>
                 </div>
               </div>

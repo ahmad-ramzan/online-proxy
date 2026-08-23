@@ -229,6 +229,7 @@ export interface PaymentSettings {
   ltesocksPrices?: string;       // custom resale prices "days:usd" e.g. "7:4.10, 15:8.15, 30:15.75"
   ltesocksMaxSpeed?: number;     // displayed max speed (mbit/s) on mobile cards
   ltesocksAvailablePlans?: string; // comma-separated plan-name fragments forced "in stock" (blank = live availability)
+  ltesocksStock?: number;          // IP-Pool/stock number shown on mobile cards (admin-set)
 }
 
 export interface WebsiteSettings {

@@ -122,7 +122,8 @@ const DEFAULT_DB: DatabaseSchema = {
     ltesocksCountries: 'US, DE, FR, CA, GB, AU',
     ltesocksPrices: '7:4.10, 15:8.15, 30:15.75',
     ltesocksMaxSpeed: 30,
-    ltesocksAvailablePlans: ''
+    ltesocksAvailablePlans: '',
+    ltesocksStock: 30
   },
   websiteSettings: {
     siteName: 'ProxyGPT Online',

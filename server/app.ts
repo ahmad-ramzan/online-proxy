@@ -728,7 +728,8 @@ app.get('/api/mobile/plans', authenticateToken, async (req, res) => {
     // Available plans first, then by name.
     plans.sort((a, b) => (b.inStock ? 1 : 0) - (a.inStock ? 1 : 0) || a.name.localeCompare(b.name));
     const maxSpeed = (dbInstance.getPaymentSettings() as any).ltesocksMaxSpeed || 30;
-    res.json({ configured: true, plans, maxSpeed });
+    const stock = (dbInstance.getPaymentSettings() as any).ltesocksStock ?? 30;
+    res.json({ configured: true, plans, maxSpeed, stock });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Failed to load mobile plans.' });
   }

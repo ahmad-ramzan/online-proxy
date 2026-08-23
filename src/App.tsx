@@ -1170,7 +1170,7 @@ export default function App() {
                 }`}
               >
                 <Smartphone className="w-4 h-4" />
-                <span>Mobile Proxies</span>
+                <span>Buy Mobile Proxies</span>
               </button>
 
               <button
@@ -1262,7 +1262,7 @@ export default function App() {
                 </button>
                 <div className="min-w-0">
                   <h1 className="text-xl font-bold text-white uppercase tracking-wider text-xs sm:text-sm truncate">
-                    {dashboardTab === 'overview' ? 'Overview' : dashboardTab === 'create-proxy' ? 'Configure Terminal' : dashboardTab === 'mobile' ? 'Mobile Proxies' : dashboardTab === 'video' ? 'Video Tutorial' : dashboardTab === 'notice-board' ? 'Notice Board' : dashboardTab === 'settings' ? 'Account Settings' : dashboardTab === 'transactions' ? 'Order History' : 'Pricing Pool Catalog'}
+                    {dashboardTab === 'overview' ? 'Overview' : dashboardTab === 'create-proxy' ? 'Configure Terminal' : dashboardTab === 'mobile' ? 'Buy Mobile Proxies' : dashboardTab === 'video' ? 'Video Tutorial' : dashboardTab === 'notice-board' ? 'Notice Board' : dashboardTab === 'settings' ? 'Account Settings' : dashboardTab === 'transactions' ? 'Order History' : 'Pricing Pool Catalog'}
                   </h1>
                   <p className="text-xs text-slate-500 hidden sm:block">Manage your secure unthrottled dynamic internet gateways</p>
                 </div>
