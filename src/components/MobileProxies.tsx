@@ -36,8 +36,13 @@ const durationLabel = (secs: number) => {
   return `${Math.round(secs / 86400)} day${secs >= 172800 ? 's' : ''}`;
 };
 
-// Traffic in GB; 0 (or an "unlimited" sentinel) shows the infinity sign.
-const mobileTrafficLabel = (mb: number) => (!mb || mb <= 0 || mb >= 1048576) ? '∞ GB' : `${Math.round(mb / 1024)} GB`;
+// LTESocks uses traffic = -1 (or 0) for unlimited → show ∞. Sub-GB traffic is
+// shown in MB so small caps never round down to a misleading "0 GB".
+const mobileTrafficLabel = (mb: number) => {
+  if (mb === -1 || mb === 0 || mb >= 1048576) return '∞ GB';
+  if (mb < 1024) return `${mb} MB`;
+  return `${Math.round(mb / 1024)} GB`;
+};
 
 export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp }: MobileProxiesProps) {
   const [configured, setConfigured] = useState(true);
