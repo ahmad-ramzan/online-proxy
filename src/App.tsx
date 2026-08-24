@@ -1852,12 +1852,12 @@ export default function App() {
           showZinipay={zinipayEnabled}
           onClose={() => setMobileCheckout(null)}
           walletBalance={walletBalance}
-          onWalletPay={async (couponCode) => {
+          onWalletPay={async () => {
             const mc = mobileCheckout;
             if (!mc) return;
             setActionLoading(true);
             try {
-              await api.mobile.order(mc.planId, mc.tarifIndex, couponCode || undefined);
+              await api.mobile.order(mc.planId, mc.tarifIndex);
               setMobileCheckout(null);
               await syncLedgerData();
               await refreshWallet();
@@ -1868,12 +1868,12 @@ export default function App() {
               setActionLoading(false);
             }
           }}
-          onProceed={async (couponCode, gateway, phone) => {
+          onProceed={async (_couponCode, gateway, phone) => {
             const mc = mobileCheckout;
             if (!mc) return;
             setActionLoading(true);
             try {
-              const res = await api.mobile.checkout(mc.planId, mc.tarifIndex, gateway, phone, couponCode || undefined);
+              const res = await api.mobile.checkout(mc.planId, mc.tarifIndex, gateway, phone);
               if (res?.checkoutUrl) {
                 window.location.href = res.checkoutUrl;
               } else {

@@ -361,25 +361,20 @@ export class PaymentService {
    */
   public static async createMobileCheckoutSession(params: {
     userId: string; userEmail: string; planId: string; tarificationIndex: number;
-    gateway: 'credit_card' | 'paystation' | 'cryptomus'; appUrl: string; custPhone?: string; couponCode?: string;
+    gateway: 'credit_card' | 'paystation' | 'cryptomus'; appUrl: string; custPhone?: string;
   }): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
     const plans = await LTESocksService.getPlans();
     const plan = plans.find(p => p.id === params.planId);
     if (!plan) throw new Error('Mobile plan not found.');
     const trf = plan.tarifications[params.tarificationIndex];
     if (!trf) throw new Error('Invalid duration selected.');
-
-    // Apply a coupon (if any) to what the customer is charged via the gateway.
-    const couponEval = this.evaluateCoupon(trf.priceUsd, params.couponCode);
-    if (couponEval.error) throw new Error(couponEval.error);
-    const amountUsd = couponEval.finalUsd;
+    const amountUsd = trf.priceUsd;
 
     const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     dbInstance.insertTransaction({
       id: txnId, userId: params.userId, userEmail: params.userEmail, orderId: '',
       amountUsd, gateway: params.gateway, status: 'pending', createdAt: new Date().toISOString(),
-      purpose: 'mobile', mobilePlanId: params.planId, mobileTarificationIndex: params.tarificationIndex,
-      couponCode: couponEval.couponCode, discountUsd: couponEval.discountUsd || undefined
+      purpose: 'mobile', mobilePlanId: params.planId, mobileTarificationIndex: params.tarificationIndex
     });
 
     // --- ZiniPay ---
