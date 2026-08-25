@@ -148,11 +148,12 @@ export class LTESocksService {
 
   /** Order a new port from a plan + tarification. Costs the LTESocks balance. */
   public static async orderPort(planId: string, tarification: LteTarification): Promise<LteOrderedPort> {
-    console.log('[LTeSocks] Ordering port with:', { plan: planId, tarification });
+    const payload = { plan: planId, time: tarification.time, traffic: tarification.traffic, price: tarification.price };
+    console.log('[LTeSocks] Ordering port with payload:', payload);
     try {
       const d = await Promise.race([
-        this.req('POST', '/ports/order', { plan: planId, tarification }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('LTeSocks API timeout')), 5000))
+        this.req('POST', '/ports/order', payload),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('LTeSocks API timeout')), 10000))
       ]);
       console.log('[LTeSocks] Order success:', d?.portId || d?.id);
       const port = d?.data || d?.port || d;
