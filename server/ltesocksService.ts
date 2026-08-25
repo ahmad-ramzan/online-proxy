@@ -100,6 +100,7 @@ export class LTESocksService {
     const overrides = this.priceOverrides();
     const raw = await this.req('GET', '/plans');
     const list: any[] = Array.isArray(raw) ? raw : (raw.data || raw.plans || []);
+    if (list[0]) console.log('[LTeSocks] RAW first plan sample:', JSON.stringify(list[0]));
     return list
       .filter(p => p && p.available !== false)
       .map(p => ({
