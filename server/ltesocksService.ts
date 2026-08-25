@@ -69,7 +69,9 @@ export class LTESocksService {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data?.error) {
-      throw new Error(data?.error || `LTESocks ${path} failed (HTTP ${res.status}).`);
+      console.error(`[LTeSocks] ${path} HTTP ${res.status} full response:`, JSON.stringify(data));
+      const msg = typeof data?.error === 'string' ? data.error : (data?.message || JSON.stringify(data?.errors || data) || `HTTP ${res.status}`);
+      throw new Error(msg);
     }
     return data;
   }
