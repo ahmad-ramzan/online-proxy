@@ -151,7 +151,7 @@ export class LTESocksService {
   /** Order a new port from a plan + tarification. Costs the LTESocks balance. */
   public static async orderPort(planId: string, tarification: LteTarification): Promise<LteOrderedPort> {
     const payload = { plan: planId, tarification: { time: tarification.time, traffic: tarification.traffic, price: tarification.price } };
-    console.log('[LTeSocks] Ordering port with payload:', payload);
+    console.log('[LTeSocks] Ordering port with payload:', JSON.stringify(payload));
     try {
       const d = await Promise.race([
         this.req('POST', '/ports/order', payload),
