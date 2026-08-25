@@ -771,9 +771,15 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
     let ordered;
     try {
       console.log('[mobile/order] Ordering port from LTeSocks...');
-      ordered = await LTESocksService.orderPort(planId, { time: trf.time, traffic: trf.trafficMb, price: trf.priceRaw });
+      const orderPromise = LTESocksService.orderPort(planId, { time: trf.time, traffic: trf.trafficMb, price: trf.priceRaw });
+      // Timeout after 10 seconds
+      ordered = await Promise.race([
+        orderPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('LTeSocks API timeout')), 10000))
+      ]);
       console.log('[mobile/order] Port ordered, portId:', ordered?.portId);
     } catch (e: any) {
+      console.log('[mobile/order] Order error:', e.message);
       dbInstance.creditWallet(req.user!.id, trf.priceUsd, `Refund — mobile proxy order failed`);
       return res.status(502).json({ error: `Could not create the mobile proxy (${e.message}). Your wallet was refunded.` });
     }
