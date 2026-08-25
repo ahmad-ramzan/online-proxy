@@ -1037,6 +1037,16 @@ const requireAdmin = (req: express.Request, res: express.Response, next: express
   next();
 };
 
+// Reseller account info (LTeSocks balance) — helps diagnose "orders failing" issues.
+app.get('/api/admin/ltesocks-account', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const info = await LTESocksService.getUser();
+    res.json(info);
+  } catch (e: any) {
+    res.status(502).json({ error: e.message || 'Could not reach LTeSocks.' });
+  }
+});
+
 app.get('/api/admin/stats', authenticateToken, requireAdmin, (req, res) => {
   const users = dbInstance.getUsers();
   const orders = dbInstance.getOrders();
