@@ -756,17 +756,23 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
     const plans = await LTESocksService.getPlans();
     console.log('[mobile/order] Plans received, count:', plans.length);
     const plan = plans.find(p => p.id === planId);
+    console.log('[mobile/order] Plan found:', !!plan);
     if (!plan) return res.status(404).json({ error: 'Plan not found.' });
     const trf = plan.tarifications[Number(tarificationIndex)];
+    console.log('[mobile/order] Tarification found:', !!trf);
     if (!trf) return res.status(400).json({ error: 'Invalid duration selected.' });
 
     // Charge the wallet first; refund if the upstream order fails.
+    console.log('[mobile/order] Debiting wallet...');
     const debit = dbInstance.debitWallet(req.user!.id, trf.priceUsd, `Mobile proxy: ${plan.name}`);
+    console.log('[mobile/order] Debit result:', debit.ok);
     if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
 
     let ordered;
     try {
+      console.log('[mobile/order] Ordering port from LTeSocks...');
       ordered = await LTESocksService.orderPort(planId, { time: trf.time, traffic: trf.trafficMb, price: trf.priceRaw });
+      console.log('[mobile/order] Port ordered, portId:', ordered?.portId);
     } catch (e: any) {
       dbInstance.creditWallet(req.user!.id, trf.priceUsd, `Refund — mobile proxy order failed`);
       return res.status(502).json({ error: `Could not create the mobile proxy (${e.message}). Your wallet was refunded.` });
