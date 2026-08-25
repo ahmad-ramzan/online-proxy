@@ -742,7 +742,9 @@ app.get('/api/mobile/my', authenticateToken, (req, res) => {
 
 // Order a mobile proxy, paying from the wallet balance.
 app.post('/api/mobile/order', authenticateToken, async (req, res) => {
+  console.log('[mobile/order] Starting...');
   const { planId, tarificationIndex } = req.body;
+  console.log('[mobile/order] planId:', planId, 'tarifIndex:', tarificationIndex);
   if (!planId || tarificationIndex === undefined) {
     return res.status(400).json({ error: 'planId and tarificationIndex are required.' });
   }
@@ -750,7 +752,9 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'Mobile proxies are not available right now.' });
   }
   try {
+    console.log('[mobile/order] Getting plans from LTeSocks...');
     const plans = await LTESocksService.getPlans();
+    console.log('[mobile/order] Plans received, count:', plans.length);
     const plan = plans.find(p => p.id === planId);
     if (!plan) return res.status(404).json({ error: 'Plan not found.' });
     const trf = plan.tarifications[Number(tarificationIndex)];
