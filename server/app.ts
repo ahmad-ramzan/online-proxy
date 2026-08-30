@@ -1484,6 +1484,66 @@ app.delete('/api/admin/support/:id', authenticateToken, requireAdmin, (req, res)
   res.json({ success: true });
 });
 
+// --- HOSTED IP MANAGEMENT ---
+
+app.get('/api/admin/hosted-ips', authenticateToken, requireAdmin, (req, res) => {
+  const ips = dbInstance.getHostedIps();
+  res.json({ ips });
+});
+
+app.post('/api/admin/hosted-ips', authenticateToken, requireAdmin, (req, res) => {
+  const { ipAddress } = req.body;
+  if (!ipAddress || !ipAddress.trim()) {
+    return res.status(400).json({ error: 'IP address is required.' });
+  }
+  try {
+    const ip = dbInstance.insertHostedIp({
+      id: `ip_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      ipAddress: ipAddress.trim(),
+      status: 'available',
+      createdAt: new Date().toISOString()
+    });
+    dbInstance.log('info', 'admin', `Hosted IP added: ${ipAddress}`);
+    res.json({ ip });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to add IP.' });
+  }
+});
+
+app.put('/api/admin/hosted-ips/:id', authenticateToken, requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { ipAddress, status } = req.body;
+  const ip = dbInstance.getHostedIpById(id);
+  if (!ip) return res.status(404).json({ error: 'IP not found.' });
+  try {
+    const updated = dbInstance.updateHostedIp(id, {
+      ...(ipAddress && { ipAddress }),
+      ...(status && { status })
+    });
+    if (!updated) return res.status(500).json({ error: 'Failed to update IP.' });
+    dbInstance.log('info', 'admin', `Hosted IP updated: ${id}`);
+    res.json({ ip: updated });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to update IP.' });
+  }
+});
+
+app.delete('/api/admin/hosted-ips/:id', authenticateToken, requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const ip = dbInstance.getHostedIpById(id);
+  if (!ip) return res.status(404).json({ error: 'IP not found.' });
+  if (ip.status === 'assigned') {
+    return res.status(400).json({ error: 'Cannot delete assigned IP. Unassign first.' });
+  }
+  try {
+    dbInstance.deleteHostedIp(id);
+    dbInstance.log('info', 'admin', `Hosted IP deleted: ${ip.ipAddress}`);
+    res.json({ success: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to delete IP.' });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // BANDWIDTH ENFORCEMENT
 //

@@ -561,6 +561,52 @@ export const api = {
         throw new Error(err.error || 'Failed to delete proxy');
       }
       return true;
+    },
+
+    // Hosted IP Management
+    async getHostedIps(): Promise<any[]> {
+      const res = await fetch(`${API_BASE}/api/admin/hosted-ips`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load hosted IPs');
+      const data = await res.json();
+      return data.ips;
+    },
+
+    async addHostedIp(ipAddress: string): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/hosted-ips`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ ipAddress })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add IP');
+      }
+      return (await res.json()).ip;
+    },
+
+    async updateHostedIp(id: string, updates: { ipAddress?: string; status?: string }): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/hosted-ips/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update IP');
+      }
+      return (await res.json()).ip;
+    },
+
+    async deleteHostedIp(id: string): Promise<boolean> {
+      const res = await fetch(`${API_BASE}/api/admin/hosted-ips/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete IP');
+      }
+      return true;
     }
   },
 
