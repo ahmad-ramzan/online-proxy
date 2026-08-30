@@ -515,6 +515,52 @@ export const api = {
       });
       if (!res.ok) throw new Error('Failed to apply global settings modifications');
       return true;
+    },
+
+    // Mobile Proxy Management
+    async getMobileOrders(): Promise<{ orders: any[]; availableProxies: any[]; allProxies?: any[] }> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-orders`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load mobile orders');
+      const data = await res.json();
+      return data;
+    },
+
+    async assignMobileProxy(orderId: string, mobileProxyId: string): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-orders/${orderId}/assign`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ mobileProxyId })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to assign proxy');
+      }
+      return res.json();
+    },
+
+    async addMobileProxy(proxy: { ip: string; port: string; username: string; password: string; planName: string; countryCode: string; priceUsd: number }): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-proxies`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(proxy)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add proxy');
+      }
+      return res.json();
+    },
+
+    async deleteMobileProxy(proxyId: string): Promise<boolean> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-proxies/${proxyId}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete proxy');
+      }
+      return true;
     }
   },
 

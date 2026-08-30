@@ -449,6 +449,10 @@ class Database {
     return (this.read().mobileProxies || []).filter(m => m.status === 'available');
   }
 
+  public getMobileProxies(): MobileProxy[] {
+    return this.read().mobileProxies || [];
+  }
+
   public updateTransaction(id: string, updates: Partial<PaymentTransaction>): PaymentTransaction | null {
     const db = this.read();
     const idx = db.transactions.findIndex(t => t.id === id);

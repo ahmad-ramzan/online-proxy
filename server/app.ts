@@ -991,6 +991,7 @@ app.get('/api/admin/ltesocks-account', authenticateToken, requireAdmin, async (r
 app.get('/api/admin/mobile-orders', authenticateToken, requireAdmin, (req, res) => {
   const orders = dbInstance.getPendingMobileProxyOrders();
   const availableProxies = dbInstance.getAvailableMobileProxies();
+  const allProxies = dbInstance.getMobileProxies();
   const users = dbInstance.getUsers();
 
   const ordersWithUser = orders.map(o => {
@@ -998,7 +999,7 @@ app.get('/api/admin/mobile-orders', authenticateToken, requireAdmin, (req, res) 
     return { ...o, userName: user?.name || 'Unknown', userEmail: user?.email || '' };
   });
 
-  res.json({ orders: ordersWithUser, availableProxies });
+  res.json({ orders: ordersWithUser, availableProxies, allProxies });
 });
 
 // Admin assigns a proxy from inventory to a pending order
@@ -1037,6 +1038,55 @@ app.post('/api/admin/mobile-orders/:orderId/assign', authenticateToken, requireA
   } catch (e: any) {
     console.error('[/api/admin/mobile-orders/:orderId/assign] Error:', e.message || e);
     res.status(500).json({ error: e.message || 'Failed to assign proxy.' });
+  }
+});
+
+// Admin adds a proxy to the inventory pool
+app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res) => {
+  const { ip, port, username, password, planName, countryCode, priceUsd } = req.body;
+
+  if (!ip || !port || !username || !password) {
+    return res.status(400).json({ error: 'ip, port, username, password are required.' });
+  }
+
+  try {
+    const proxy = dbInstance.insertMobileProxy({
+      id: `mp_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      ip,
+      port: String(port),
+      username,
+      password,
+      planName: planName || 'Unknown Plan',
+      countryCode: countryCode || '',
+      priceUsd: priceUsd || 0,
+      protocol: 'socks5',
+      status: 'available',
+      createdAt: new Date().toISOString()
+    });
+    dbInstance.log('info', 'proxy', `Admin added proxy to inventory: ${ip}:${port}`);
+    res.json({ proxy });
+  } catch (e: any) {
+    console.error('[/api/admin/mobile-proxies] Error:', e.message || e);
+    res.status(500).json({ error: e.message || 'Failed to add proxy.' });
+  }
+});
+
+// Admin deletes a proxy from inventory
+app.delete('/api/admin/mobile-proxies/:proxyId', authenticateToken, requireAdmin, (req, res) => {
+  const { proxyId } = req.params;
+  const proxy = dbInstance.getMobileProxyById(proxyId);
+
+  if (!proxy) {
+    return res.status(404).json({ error: 'Proxy not found.' });
+  }
+
+  try {
+    dbInstance.deleteMobileProxy(proxyId);
+    dbInstance.log('info', 'proxy', `Admin deleted proxy from inventory: ${proxy.ip}:${proxy.port}`);
+    res.json({ success: true });
+  } catch (e: any) {
+    console.error('[/api/admin/mobile-proxies/:proxyId] Error:', e.message || e);
+    res.status(500).json({ error: e.message || 'Failed to delete proxy.' });
   }
 });
 

@@ -7,17 +7,18 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, DollarSign, Database, Server, Settings, Terminal, Shield,
   Trash2, ToggleLeft, ToggleRight, Plus, Check, Edit2, ShieldAlert,
-  Loader2, Save, Globe, Lock, Code, Ticket, Receipt, Megaphone, Bell, Pin, X, HelpCircle
+  Loader2, Save, Globe, Lock, Code, Ticket, Receipt, Megaphone, Bell, Pin, X, HelpCircle, Smartphone
 } from 'lucide-react';
 import { User, ProxyPackage, SystemLog, CountryConfig, Coupon, NoticePost, SupportTicket } from '../types';
 import { api } from '../services/api';
+import MobileProxyAdmin from './MobileProxyAdmin';
 
 interface AdminPanelProps {
   onLogout: () => void;
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies'>('stats');
 
   // States loaded from backend
   const [metrics, setMetrics] = useState<any>(null);
@@ -421,6 +422,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           { id: 'settings', label: 'Global Settings', icon: <Settings className="w-4 h-4" /> },
           { id: 'notice', label: 'Notice Board', icon: <Megaphone className="w-4 h-4" /> },
           { id: 'support', label: 'Support Tickets', icon: <HelpCircle className="w-4 h-4" /> },
+          { id: 'mobile-proxies', label: 'Mobile Proxies', icon: <Smartphone className="w-4 h-4" /> },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1625,6 +1627,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               )}
             </div>
           </div>
+        )}
+
+        {/* MOBILE PROXY MANAGEMENT TAB */}
+        {activeTab === 'mobile-proxies' && (
+          <MobileProxyAdmin />
         )}
 
       </main>
