@@ -69,7 +69,7 @@ export default function App() {
 
   // Checkout modal (coupon entry before payment)
   const [checkoutPkg, setCheckoutPkg] = useState<ProxyPackage | null>(null);
-  const [mobileCheckout, setMobileCheckout] = useState<{ pkg: ProxyPackage; planId: string; tarifIndex: number; subtitle: string } | null>(null);
+  const [mobileCheckout, setMobileCheckout] = useState<{ pkg: ProxyPackage; planName: string; countryCode: string; subtitle: string } | null>(null);
 
   // Mobile sidebar drawer (client dashboard portal)
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1410,10 +1410,10 @@ export default function App() {
                   walletBalance={walletBalance}
                   onBalanceChange={refreshWallet}
                   onTopUp={(amount?: number) => { setTopupAmount(amount); setShowTopup(true); }}
-                  onCheckout={(plan: any, tarifIndex: number, subtitle: string, priceUsd: number) => {
+                  onCheckout={(planName: string, countryCode: string, subtitle: string, priceUsd: number) => {
                     setMobileCheckout({
-                      pkg: { id: `mob_${plan.id}`, name: plan.name, bandwidthGb: 0, priceUsd, features: [], isActive: true },
-                      planId: plan.id, tarifIndex, subtitle
+                      pkg: { id: `mob_${planName}_${countryCode}`, name: planName, bandwidthGb: 0, priceUsd, features: [], isActive: true },
+                      planName, countryCode, subtitle
                     });
                   }}
                 />
@@ -1877,7 +1877,7 @@ export default function App() {
             if (!mc) return;
             setActionLoading(true);
             try {
-              await api.mobile.order(mc.planId, mc.tarifIndex);
+              await api.mobile.order(mc.planName, mc.countryCode);
               setMobileCheckout(null);
               await syncLedgerData();
               await refreshWallet();
@@ -1893,7 +1893,7 @@ export default function App() {
             if (!mc) return;
             setActionLoading(true);
             try {
-              const res = await api.mobile.checkout(mc.planId, mc.tarifIndex, gateway, phone);
+              const res = await api.mobile.checkout(mc.planName, mc.countryCode, gateway, phone);
               if (res?.checkoutUrl) {
                 window.location.href = res.checkoutUrl;
               } else {

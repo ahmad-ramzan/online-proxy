@@ -122,16 +122,7 @@ const DEFAULT_DB: DatabaseSchema = {
     // Cryptomus — set Merchant UUID + API key in Admin → Payment Settings.
     cryptomusMerchantId: '',
     cryptomusApiKey: '',
-    cryptomusBaseUrl: 'https://api.cryptomus.com',
-    // LTESocks — mobile proxy provider; set the Authorization token in Admin.
-    ltesocksApiKey: '',
-    ltesocksBaseUrl: 'https://api.ltesocks.io/v2',
-    ltesocksPriceDivisor: 100,
-    ltesocksCountries: 'US, DE, FR, CA, GB, AU',
-    ltesocksPrices: '7:4.10, 15:8.15, 30:15.75',
-    ltesocksMaxSpeed: 30,
-    ltesocksAvailablePlans: '',
-    ltesocksStock: 30
+    cryptomusBaseUrl: 'https://api.cryptomus.com'
   },
   websiteSettings: {
     siteName: 'ProxyGPT Online',
@@ -416,7 +407,7 @@ class Database {
     return { ok: true, balance: newBalance };
   }
 
-  // --- MOBILE PROXIES (LTESocks) ---
+  // --- MOBILE PROXIES (manual admin-managed pool) ---
 
   public getMobileProxiesByUser(userId: string): MobileProxy[] {
     return (this.read().mobileProxies || [])
@@ -487,6 +478,30 @@ class Database {
 
   public getMobileProxies(): MobileProxy[] {
     return this.read().mobileProxies || [];
+  }
+
+  /** Groups the available mobile-proxy pool into buyable "plans" (planName + countryCode). */
+  public getMobilePlanGroups(): { planName: string; countryCode: string; priceUsd: number; availableCount: number }[] {
+    const available = this.getAvailableMobileProxies();
+    const groups = new Map<string, { planName: string; countryCode: string; priceUsd: number; availableCount: number }>();
+    for (const p of available) {
+      const key = `${p.planName}::${p.countryCode}`;
+      const g = groups.get(key);
+      if (g) g.availableCount++;
+      else groups.set(key, { planName: p.planName, countryCode: p.countryCode, priceUsd: p.priceUsd, availableCount: 1 });
+    }
+    return Array.from(groups.values());
+  }
+
+  /** Assigns the next available proxy matching planName+countryCode to a user (atomic). */
+  public assignAvailableMobileProxy(userId: string, planName: string, countryCode: string): MobileProxy | null {
+    const db = this.read();
+    if (!db.mobileProxies) db.mobileProxies = [];
+    const idx = db.mobileProxies.findIndex(m => m.status === 'available' && m.planName === planName && m.countryCode === countryCode);
+    if (idx === -1) return null;
+    db.mobileProxies[idx] = { ...db.mobileProxies[idx], userId, status: 'active' };
+    this.write(db);
+    return db.mobileProxies[idx];
   }
 
   // --- HOSTED IPs ---

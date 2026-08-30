@@ -4,15 +4,22 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Smartphone, RefreshCw, Trash2, Loader2, Copy, Check, Zap, Wallet, ShoppingBag } from 'lucide-react';
+import { Smartphone, Trash2, Loader2, Copy, Check, Zap, Wallet, ShoppingBag } from 'lucide-react';
 import { api } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
+
+interface MobilePlanGroup {
+  planName: string;
+  countryCode: string;
+  priceUsd: number;
+  availableCount: number;
+}
 
 interface MobileProxiesProps {
   walletBalance: number;
   onBalanceChange: () => void;
   onTopUp: (amount?: number) => void;
-  onCheckout: (plan: any, tarifIndex: number, subtitle: string, priceUsd: number) => void;
+  onCheckout: (planName: string, countryCode: string, subtitle: string, priceUsd: number) => void;
 }
 
 const flagEmoji = (code: string) => {
@@ -20,45 +27,11 @@ const flagEmoji = (code: string) => {
   return String.fromCodePoint(...[...code.toUpperCase()].map(c => 127397 + c.charCodeAt(0)));
 };
 
-// LTESocks doesn't expose the operator as a field, so derive it from the plan
-// name by stripping the country prefix and marketing words.
-const operatorFromName = (name: string) => {
-  const s = String(name || '')
-    .replace(/\([^)]*\)/g, ' ')
-    .replace(/\b(true|5G|4G|LTE|speed|unlimited)\b/gi, ' ')
-    .replace(/^\s*(United Kingdom|United States|USA|US|Canada|Germany|France|Spain|Italy|Netherlands|Poland|Sweden|Norway|Finland|Belgium|Austria|Switzerland|Portugal|Ireland|Denmark|Czechia|Czech Republic|Romania|Greece|Turkey|Ukraine|Russia|United Arab Emirates|UAE)\s+/i, ' ')
-    .replace(/\s+/g, ' ').trim();
-  return s || '—';
-};
-
-// Only offer durations of 7 days or longer (hide the 1-hour / 1-day options).
-const MIN_TIME = 7 * 86400;
-
-const durationLabel = (secs: number) => {
-  if (secs < 3600) return `${Math.round(secs / 60)} min`;
-  if (secs < 86400) return `${Math.round(secs / 3600)} hour${secs >= 7200 ? 's' : ''}`;
-  return `${Math.round(secs / 86400)} day${secs >= 172800 ? 's' : ''}`;
-};
-
-// LTESocks uses traffic = -1 (or 0) for unlimited → show ∞. Sub-GB traffic is
-// shown in MB so small caps never round down to a misleading "0 GB".
-const mobileTrafficLabel = (mb: number) => {
-  if (mb === -1 || mb === 0 || mb >= 1048576) return '∞ GB';
-  if (mb < 1024) return `${mb} MB`;
-  return `${Math.round(mb / 1024)} GB`;
-};
-
-export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp, onCheckout }: MobileProxiesProps) {
-  const [configured, setConfigured] = useState(true);
-  const [maxSpeed, setMaxSpeed] = useState(30);
-  const [stock, setStock] = useState(30);
-  const [plans, setPlans] = useState<any[]>([]);
+export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: MobileProxiesProps) {
+  const [plans, setPlans] = useState<MobilePlanGroup[]>([]);
   const [mine, setMine] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [country, setCountry] = useState('ALL');
-  const [operator, setOperator] = useState('ALL');
-  const [ptype, setPtype] = useState('ALL');
-  const [selDur, setSelDur] = useState<Record<string, number>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -66,9 +39,6 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp,
   const load = async () => {
     try {
       const [p, m] = await Promise.all([api.mobile.getPlans(), api.mobile.getMy()]);
-      setConfigured(p.configured);
-      if (p.maxSpeed) setMaxSpeed(p.maxSpeed);
-      if (p.stock !== undefined) setStock(p.stock);
       setPlans(p.plans || []);
       setMine(m || []);
     } catch (e: any) {
@@ -82,34 +52,15 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp,
   useEffect(() => { if (!loading) load(); /* eslint-disable-next-line */ }, [walletBalance]);
 
   const uniqCountries: string[] = [];
-  const uniqOperators: string[] = [];
-  plans.forEach((p) => {
-    const c = String(p.countryCode || ''); if (c && !uniqCountries.includes(c)) uniqCountries.push(c);
-    const op = operatorFromName(p.name); if (op && op !== '—' && !uniqOperators.includes(op)) uniqOperators.push(op);
-  });
-  uniqOperators.sort();
+  plans.forEach((p) => { if (p.countryCode && !uniqCountries.includes(p.countryCode)) uniqCountries.push(p.countryCode); });
   const countries: string[] = ['ALL', ...uniqCountries];
-  const shown = plans.filter(p =>
-    (country === 'ALL' || p.countryCode === country) &&
-    (operator === 'ALL' || operatorFromName(p.name) === operator) &&
-    (ptype === 'ALL' || ptype === 'Private') &&
-    (p.tarifications || []).some((t: any) => t.time >= MIN_TIME)
-  );
+  const shown = plans.filter(p => country === 'ALL' || p.countryCode === country);
 
-  // Open the full checkout modal (wallet / BDT / crypto) for the selected duration.
-  const buy = (plan: any, idx: number) => {
-    const trf = plan.tarifications[idx];
-    if (!trf) return;
-    const subtitle = `${flagEmoji(plan.countryCode)} ${plan.name} · ${durationLabel(trf.time)} · ${mobileTrafficLabel(trf.trafficMb)}`;
-    onCheckout(plan, idx, subtitle, trf.priceUsd);
+  const buy = (plan: MobilePlanGroup) => {
+    const subtitle = `${flagEmoji(plan.countryCode)} ${plan.planName} (${plan.countryCode})`;
+    onCheckout(plan.planName, plan.countryCode, subtitle, plan.priceUsd);
   };
 
-  const rotate = async (m: any) => {
-    setBusyId(m.id); setError('');
-    try { await api.mobile.reset(m.id); await load(); }
-    catch (e: any) { setError(e.message || 'Rotate failed.'); }
-    finally { setBusyId(null); }
-  };
   const remove = async (m: any) => {
     if (!confirm('Release this mobile proxy? This cannot be undone.')) return;
     setBusyId(m.id); setError('');
@@ -123,13 +74,6 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp,
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-400"><Loader2 className="w-6 h-6 animate-spin" /></div>;
 
-  if (!configured) return (
-    <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-10 text-center text-slate-400">
-      <Smartphone className="w-10 h-10 mx-auto mb-3 text-slate-600" />
-      Mobile proxies are not available yet. Please check back soon.
-    </div>
-  );
-
   return (
     <div className="space-y-8 animate-fade-in text-slate-200">
       {error && <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-semibold rounded-xl px-4 py-3">{error}</div>}
@@ -140,8 +84,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp,
           <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><Smartphone className="w-4 h-4 text-purple-400" /> My Mobile Proxies</h3>
           <div className="space-y-3">
             {mine.map((m) => {
-              const conn = `${m.ip}:${m.port}:${m.username}:${m.password}`;
-              const expired = new Date(m.expiresAt).getTime() < Date.now();
+              const conn = `${m.username}:${m.password}@${m.ip}:${m.port}`;
               return (
                 <div key={m.id} className="bg-slate-900/50 border border-slate-850 rounded-2xl p-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -149,17 +92,12 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp,
                       <span className="text-lg">{flagEmoji(m.countryCode)}</span>
                       <div>
                         <p className="text-xs font-bold text-white">{m.planName}</p>
-                        <p className="text-[10px] text-slate-500">{m.protocol.toUpperCase()} · {expired ? <span className="text-red-400">expired</span> : `expires ${new Date(m.expiresAt).toLocaleDateString()}`}</p>
+                        <p className="text-[10px] text-slate-500">{(m.protocol || 'socks5').toUpperCase()}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => rotate(m)} disabled={busyId === m.id || expired} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-slate-700 rounded-lg text-[11px] font-bold text-white flex items-center gap-1.5 cursor-pointer">
-                        {busyId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 text-blue-400" />} Rotate IP
-                      </button>
-                      <button onClick={() => remove(m)} disabled={busyId === m.id} className="p-1.5 bg-slate-800 hover:bg-red-900/40 border border-slate-700 rounded-lg text-slate-400 hover:text-red-300 cursor-pointer">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    <button onClick={() => remove(m)} disabled={busyId === m.id} className="p-1.5 bg-slate-800 hover:bg-red-900/40 border border-slate-700 rounded-lg text-slate-400 hover:text-red-300 cursor-pointer">
+                      {busyId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
                   <button onClick={() => copy(m.id, conn)} className="mt-3 w-full flex items-center justify-between gap-3 bg-slate-950 border border-slate-850 rounded-xl px-3 py-2 cursor-pointer group">
                     <span className="font-mono text-[11px] text-slate-300 truncate">{conn}</span>
@@ -181,78 +119,42 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp,
           </div>
         </div>
 
-        {/* Filters — Country · Operator · Type */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-          <div className="space-y-1">
+        {countries.length > 2 && (
+          <div className="mb-4 space-y-1 max-w-xs">
             <label className="text-[9px] font-bold text-slate-500 uppercase block">Country</label>
-            <select value={country} onChange={(e) => { setCountry(e.target.value); setOperator('ALL'); }} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer">
+            <select value={country} onChange={(e) => setCountry(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer">
               {countries.map(c => <option key={c} value={c}>{c === 'ALL' ? 'All Countries' : `${flagEmoji(c)}  ${c}`}</option>)}
             </select>
           </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-500 uppercase block">Operator</label>
-            <select value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer">
-              <option value="ALL">All Operators</option>
-              {uniqOperators.map(op => <option key={op} value={op}>{op}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-500 uppercase block">Type</label>
-            <select value={ptype} onChange={(e) => setPtype(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer">
-              <option value="ALL">All Types</option>
-              <option value="Private">Private</option>
-            </select>
-          </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {shown.map((plan) => {
-            // Keep the original index (used when ordering) but only show 7d+.
-            const visT = (plan.tarifications || [])
-              .map((t: any, i: number) => ({ t, i }))
-              .filter((x: any) => x.t.time >= MIN_TIME);
-            const idx = selDur[plan.id] ?? (visT[0]?.i ?? 0);
-            const trf = plan.tarifications[idx];
-            const inStock = plan.inStock !== undefined ? plan.inStock : plan.availablePorts > 0;
-            const operator = operatorFromName(plan.name);
+            const inStock = plan.availableCount > 0;
             return (
-              <div key={plan.id} className="bg-slate-950/60 border border-slate-850 hover:border-violet-500/40 rounded-2xl p-5 flex flex-col justify-between transition-colors">
+              <div key={`${plan.planName}::${plan.countryCode}`} className="bg-slate-950/60 border border-slate-850 hover:border-violet-500/40 rounded-2xl p-5 flex flex-col justify-between transition-colors">
                 <div>
                   <div className="flex items-center gap-2.5 border-b border-slate-850 pb-3 mb-3">
                     <span className="text-2xl">{flagEmoji(plan.countryCode)}</span>
-                    <p className="text-sm font-bold text-white leading-snug">{plan.name}</p>
+                    <p className="text-sm font-bold text-white leading-snug">{plan.planName}</p>
                   </div>
                   <div className="flex justify-between gap-4 text-[11px]">
                     <div className="space-y-1.5">
                       <div><span className="text-slate-500">Country:</span> <span className="text-slate-200 font-semibold">{plan.countryCode}</span></div>
-                      <div><span className="text-slate-500">Operator:</span> <span className="text-slate-200 font-semibold">{operator}</span></div>
-                      <div><span className="text-slate-500">Type:</span> <span className="text-slate-200 font-semibold">Private</span></div>
                     </div>
                     <div className="space-y-1.5 text-right">
-                      <div><span className="text-slate-500">IP Pool Size:</span> <span className="text-slate-200 font-semibold">{stock}</span></div>
-                      <div><span className="text-slate-500">Max Speed:</span> <span className="text-slate-200 font-semibold">{maxSpeed} mbit/s</span></div>
-                      <div><span className="text-slate-500">IP Change Delay:</span> <span className="text-slate-200 font-semibold">0s</span></div>
                       <div className="flex items-center justify-end gap-1.5">
                         <span className="text-slate-500">Stock:</span>
                         <span className={`w-2 h-2 rounded-full ${inStock ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                        <span className={inStock ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{inStock ? `${stock} available` : 'out of stock'}</span>
+                        <span className={inStock ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{inStock ? `${plan.availableCount} available` : 'out of stock'}</span>
                       </div>
                     </div>
                   </div>
-                  <select
-                    value={idx}
-                    onChange={(e) => setSelDur({ ...selDur, [plan.id]: parseInt(e.target.value) })}
-                    className="w-full mt-4 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-violet-500 cursor-pointer"
-                  >
-                    {visT.map(({ t, i }: any) => (
-                      <option key={i} value={i}>{durationLabel(t.time)} · {mobileTrafficLabel(t.trafficMb)} · ${t.priceUsd}</option>
-                    ))}
-                  </select>
                 </div>
                 <div className="flex items-center justify-between mt-4">
-                  <span className="text-xl font-black text-white">${trf?.priceUsd ?? '—'}</span>
+                  <span className="text-xl font-black text-white">${plan.priceUsd.toFixed(2)}</span>
                   <button
-                    onClick={() => buy(plan, idx)}
+                    onClick={() => buy(plan)}
                     disabled={!inStock}
                     className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-50 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer"
                   >
@@ -264,7 +166,7 @@ export default function MobileProxies({ walletBalance, onBalanceChange, onTopUp,
             );
           })}
         </div>
-        {shown.length === 0 && <p className="text-center text-slate-500 text-xs py-8">No plans available for this country.</p>}
+        {shown.length === 0 && <p className="text-center text-slate-500 text-xs py-8">No plans available right now. Please check back soon.</p>}
       </div>
     </div>
   );

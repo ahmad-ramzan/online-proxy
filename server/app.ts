@@ -30,7 +30,6 @@ import { ProxyService } from './proxyService';
 import { ResidentialService } from './residentialService';
 import { PaymentService } from './paymentService';
 import { CryptomusService } from './cryptomusService';
-import { LTESocksService } from './ltesocksService';
 import { User, ProxyPackage, Coupon } from '../src/types';
 
 const app = express();
@@ -707,36 +706,12 @@ app.post('/api/wallet/pay', authenticateToken, async (req, res) => {
   }
 });
 
-// --- MOBILE PROXIES (LTESocks) ---
+// --- MOBILE PROXIES (manual admin-managed pool) ---
 
-// Available mobile plans (pass-through pricing in USD).
-app.get('/api/mobile/plans', authenticateToken, async (req, res) => {
-  if (!LTESocksService.isConfigured()) return res.json({ configured: false, plans: [] });
-  try {
-    const all = await LTESocksService.getPlans();
-    // Only expose the admin-allowed countries (comma-separated ISO-2 codes).
-    const allowed = ((dbInstance.getPaymentSettings() as any).ltesocksCountries || 'DE, FR, CA, GB, AU')
-      .split(',').map((c: string) => c.trim().toUpperCase()).filter(Boolean);
-    const filtered = allowed.length
-      ? all.filter(p => allowed.includes((p.countryCode || '').toUpperCase()))
-      : all;
-    // Admin can force which plans show "in stock" by name fragment; blank = live availability.
-    const availFrags = ((dbInstance.getPaymentSettings() as any).ltesocksAvailablePlans || '')
-      .split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
-    const plans = filtered.map(p => ({
-      ...p,
-      inStock: availFrags.length
-        ? availFrags.some((frag: string) => (p.name || '').toLowerCase().includes(frag))
-        : p.availablePorts > 0
-    }));
-    // Available plans first, then by name.
-    plans.sort((a, b) => (b.inStock ? 1 : 0) - (a.inStock ? 1 : 0) || a.name.localeCompare(b.name));
-    const maxSpeed = (dbInstance.getPaymentSettings() as any).ltesocksMaxSpeed || 30;
-    const stock = (dbInstance.getPaymentSettings() as any).ltesocksStock ?? 30;
-    res.json({ configured: true, plans, maxSpeed, stock });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message || 'Failed to load mobile plans.' });
-  }
+// Available mobile "plans" — grouped from the admin's manual proxy pool.
+app.get('/api/mobile/plans', authenticateToken, (req, res) => {
+  const plans = dbInstance.getMobilePlanGroups();
+  res.json({ configured: true, plans });
 });
 
 // The logged-in user's mobile proxies.
@@ -744,37 +719,31 @@ app.get('/api/mobile/my', authenticateToken, (req, res) => {
   res.json({ proxies: dbInstance.getMobileProxiesByUser(req.user!.id) });
 });
 
-// Order a mobile proxy, paying from the wallet balance.
-// Customer orders mobile proxy via wallet; admin assigns from inventory later
+// Order a mobile proxy, paying from the wallet balance. Assigns immediately
+// from the admin's manual pool.
 app.post('/api/mobile/order', authenticateToken, async (req, res) => {
-  const { planId, tarificationIndex } = req.body;
-  if (!planId || tarificationIndex === undefined) {
-    return res.status(400).json({ error: 'planId and tarificationIndex are required.' });
+  const { planName, countryCode } = req.body;
+  if (!planName || !countryCode) {
+    return res.status(400).json({ error: 'planName and countryCode are required.' });
   }
   try {
-    // Server-authoritative pricing: look up the plan + tarification ourselves
-    // rather than trusting a client-supplied price.
-    const plans = await LTESocksService.getPlans();
-    const plan = plans.find(p => p.id === planId);
-    if (!plan) return res.status(400).json({ error: 'Mobile plan not found.' });
-    const trf = plan.tarifications[Number(tarificationIndex)];
-    if (!trf) return res.status(400).json({ error: 'Invalid duration selected.' });
-    const priceUsd = trf.priceUsd;
+    // Server-authoritative pricing: look up the pool group ourselves.
+    const group = dbInstance.getMobilePlanGroups().find(g => g.planName === planName && g.countryCode === countryCode);
+    if (!group || group.availableCount <= 0) {
+      return res.status(400).json({ error: 'This plan is out of stock right now.' });
+    }
 
-    const debit = dbInstance.debitWallet(req.user!.id, priceUsd, `Mobile proxy: ${plan.name}`);
+    const debit = dbInstance.debitWallet(req.user!.id, group.priceUsd, `Mobile proxy: ${planName} (${countryCode})`);
     if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
 
-    const order = dbInstance.insertMobileProxyOrder({
-      id: `mo_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      userId: req.user!.id,
-      planName: plan.name,
-      countryCode: plan.countryCode,
-      priceUsd,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    });
-    dbInstance.log('info', 'proxy', `Mobile proxy order created (pending): ${plan.name} for user ${req.user!.id}`);
-    res.json({ order });
+    const proxy = dbInstance.assignAvailableMobileProxy(req.user!.id, planName, countryCode);
+    if (!proxy) {
+      // Stock ran out between the check and the debit (rare race) — refund.
+      dbInstance.creditWallet(req.user!.id, group.priceUsd, `Refund: ${planName} (${countryCode}) out of stock`);
+      return res.status(400).json({ error: 'This plan just sold out. You have been refunded to your wallet.' });
+    }
+    dbInstance.log('info', 'proxy', `Mobile proxy assigned from wallet purchase: ${planName} (${countryCode}) to user ${req.user!.id}`);
+    res.json({ proxy });
   } catch (e: any) {
     console.error('[/api/mobile/order] Error:', e.message || e);
     dbInstance.log('error', 'proxy', `Mobile order error: ${e.message}`);
@@ -784,20 +753,17 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
 
 // Buy a mobile proxy via a payment gateway (checkout, like residential).
 app.post('/api/mobile/checkout', authenticateToken, async (req, res) => {
-  const { planId, tarificationIndex, gateway, custPhone } = req.body;
-  if (!planId || tarificationIndex === undefined || !gateway) {
-    return res.status(400).json({ error: 'planId, tarificationIndex and gateway are required.' });
+  const { planName, countryCode, gateway, custPhone } = req.body;
+  if (!planName || !countryCode || !gateway) {
+    return res.status(400).json({ error: 'planName, countryCode and gateway are required.' });
   }
   if (gateway === 'paystation' && !String(custPhone || '').trim()) {
     return res.status(400).json({ error: 'A phone number is required for BDT Payment.' });
   }
-  if (!LTESocksService.isConfigured()) {
-    return res.status(400).json({ error: 'Mobile proxies are not available right now.' });
-  }
   try {
     const session = await PaymentService.createMobileCheckoutSession({
       userId: req.user!.id, userEmail: req.user!.email,
-      planId, tarificationIndex: Number(tarificationIndex), gateway,
+      planName, countryCode, gateway,
       appUrl: publicBaseUrl(req), custPhone: custPhone ? String(custPhone) : undefined
     });
     res.json(session);
@@ -1022,16 +988,6 @@ const requireAdmin = (req: express.Request, res: express.Response, next: express
   }
   next();
 };
-
-// Reseller account info (LTeSocks balance) — helps diagnose "orders failing" issues.
-app.get('/api/admin/ltesocks-account', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const info = await LTESocksService.getUser();
-    res.json(info);
-  } catch (e: any) {
-    res.status(502).json({ error: e.message || 'Could not reach LTeSocks.' });
-  }
-});
 
 // List pending mobile proxy orders + available proxies for admin
 app.get('/api/admin/mobile-orders', authenticateToken, requireAdmin, (req, res) => {

@@ -19,7 +19,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies' | 'hosted-ips' | 'mobile-plans'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies' | 'hosted-ips'>('stats');
 
   // States loaded from backend
   const [metrics, setMetrics] = useState<any>(null);
@@ -437,7 +437,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           { id: 'notice', label: 'Notice Board', icon: <Megaphone className="w-4 h-4" /> },
           { id: 'support', label: 'Support Tickets', icon: <HelpCircle className="w-4 h-4" /> },
           { id: 'mobile-proxies', label: 'Mobile Proxies', icon: <Smartphone className="w-4 h-4" /> },
-          { id: 'mobile-plans', label: 'Mobile Plans', icon: <Smartphone className="w-4 h-4" /> },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1318,101 +1317,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               </p>
             </div>
 
-            {/* LTESocks — mobile (5G/LTE) proxies */}
-            <div className="bg-slate-900/40 border border-slate-900 p-6 rounded-3xl space-y-4">
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                LTESocks (Mobile 5G/LTE Proxies)
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Authorization Token</label>
-                  <input
-                    type="password"
-                    placeholder="Bearer 1416|••••••••"
-                    value={paymentSettings.ltesocksApiKey || ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksApiKey: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block">API Base URL</label>
-                  <input
-                    type="text"
-                    placeholder="https://api.ltesocks.io/v2"
-                    value={paymentSettings.ltesocksBaseUrl || ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksBaseUrl: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Price divisor (→ USD)</label>
-                  <input
-                    type="number"
-                    placeholder="100"
-                    value={paymentSettings.ltesocksPriceDivisor ?? ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksPriceDivisor: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Max Speed (mbit/s)</label>
-                  <input
-                    type="number"
-                    placeholder="30"
-                    value={paymentSettings.ltesocksMaxSpeed ?? ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksMaxSpeed: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Stock / IP Pool Size</label>
-                  <input
-                    type="number"
-                    placeholder="30"
-                    value={paymentSettings.ltesocksStock ?? ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksStock: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Mobile Proxy Countries (ISO-2, comma-separated)</label>
-                  <input
-                    type="text"
-                    placeholder="US, DE, FR, CA, GB, AU"
-                    value={paymentSettings.ltesocksCountries || ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksCountries: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Mobile Prices — days:USD (comma-separated)</label>
-                  <input
-                    type="text"
-                    placeholder="7:4.10, 15:8.15, 30:15.75"
-                    value={paymentSettings.ltesocksPrices || ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksPrices: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                  <p className="text-[10px] text-slate-500">Custom resale price per duration (overrides LTESocks pass-through). Format <span className="text-slate-400">days:usd</span>, e.g. <span className="text-slate-400">7:4.10, 15:8.15, 30:15.75</span>.</p>
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block">In-Stock Plans (name fragments, comma-separated)</label>
-                  <input
-                    type="text"
-                    placeholder="Bell Mobility, T-Mobile, Deutsche Telekom"
-                    value={paymentSettings.ltesocksAvailablePlans || ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksAvailablePlans: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  />
-                  <p className="text-[10px] text-slate-500">Plans whose name contains any of these show as <span className="text-green-400">available</span>; all others show <span className="text-red-400">out of stock</span>. Leave blank to use live LTESocks availability. Available plans are sorted to the top.</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-500 leading-relaxed">
-                Get your token from the <a href="https://ltesocks.io" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">LTESocks dashboard</a> → API. Powers the client's <span className="text-slate-400">Mobile Proxies</span> tab (pass-through pricing, paid from wallet). Divisor converts LTESocks plan prices to USD (100 = prices are in cents). Keep your LTESocks account funded so orders succeed.
-              </p>
-            </div>
-
             <button
               type="submit"
               className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 text-xs font-bold text-white rounded-xl shadow-lg shadow-blue-950/40 cursor-pointer"
@@ -1853,98 +1757,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
-        )}
-
-        {/* MOBILE PLANS MANAGEMENT TAB */}
-        {activeTab === 'mobile-plans' && paymentSettings && (
-          <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-white">Mobile Plan Pricing</h3>
-              <p className="text-xs text-slate-500">Configure LTeSocks mobile proxy plans and tarification</p>
-            </div>
-
-            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 space-y-4">
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-slate-300">Countries (ISO-2 codes, comma-separated)</label>
-                <input
-                  type="text"
-                  placeholder="US, GB, DE, FR"
-                  value={paymentSettings.ltesocksCountries || ''}
-                  onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksCountries: e.target.value })}
-                  className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-slate-300">Custom Prices (days:usd format)</label>
-                <input
-                  type="text"
-                  placeholder="7:4.10, 15:8.15, 30:15.75"
-                  value={paymentSettings.ltesocksPrices || ''}
-                  onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksPrices: e.target.value })}
-                  className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
-                />
-                <p className="text-[10px] text-slate-500">e.g. "7:4.10, 15:8.15, 30:15.75" → 7-day plan $4.10, 15-day plan $8.15, 30-day plan $15.75. Add or remove pairs to create/delete plan durations.</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <label className="text-sm font-bold text-slate-300">Max Speed (Mbit/s)</label>
-                  <input
-                    type="number"
-                    placeholder="200"
-                    value={paymentSettings.ltesocksMaxSpeed ?? ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksMaxSpeed: parseFloat(e.target.value) || 0 })}
-                    className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="space-y-3">
-                  <label className="text-sm font-bold text-slate-300">Available Stock</label>
-                  <input
-                    type="number"
-                    placeholder="100"
-                    value={paymentSettings.ltesocksStock ?? ''}
-                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksStock: parseFloat(e.target.value) || 0 })}
-                    className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-slate-300">Available Plans (names or blank for live)</label>
-                <input
-                  type="text"
-                  placeholder="unlimited_5g, unlimited_4g, 50gb_5g"
-                  value={paymentSettings.ltesocksAvailablePlans || ''}
-                  onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksAvailablePlans: e.target.value })}
-                  className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <button
-                onClick={async () => {
-                  setActionLoading(true);
-                  try {
-                    await api.admin.updateGlobalSettings({
-                      api: apiSettings,
-                      payment: paymentSettings,
-                      website: websiteSettings
-                    });
-                    triggerNotify('Mobile plans configuration saved!');
-                    await loadAdminData();
-                  } catch (e: any) {
-                    alert(e.message || 'Failed to save mobile plans configuration.');
-                  } finally {
-                    setActionLoading(false);
-                  }
-                }}
-                disabled={actionLoading}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors"
-              >
-                {actionLoading ? 'Saving...' : 'Save Mobile Plans Config'}
-              </button>
             </div>
           </div>
         )}

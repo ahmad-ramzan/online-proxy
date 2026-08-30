@@ -9,7 +9,6 @@ import { ResidentialService } from './residentialService';
 import { ZiniPayService } from './zinipayService';
 import { PayStationService } from './paystationService';
 import { CryptomusService } from './cryptomusService';
-import { LTESocksService } from './ltesocksService';
 
 /**
  * =========================================================================
@@ -444,26 +443,24 @@ export class PaymentService {
   }
 
   /**
-   * Starts a MOBILE (LTESocks) proxy purchase via a payment gateway. Creates a
-   * `purpose: 'mobile'` transaction carrying the plan + duration; on payment the
-   * shared callbacks provision the port (see completePaymentTransaction).
+   * Starts a MOBILE proxy purchase via a payment gateway from the admin's manual
+   * pool. Creates a `purpose: 'mobile'` transaction carrying the plan name +
+   * country; on payment the shared callbacks assign a proxy from the pool
+   * (see completePaymentTransaction / provisionMobileForTxn).
    */
   public static async createMobileCheckoutSession(params: {
-    userId: string; userEmail: string; planId: string; tarificationIndex: number;
+    userId: string; userEmail: string; planName: string; countryCode: string;
     gateway: 'credit_card' | 'paystation' | 'cryptomus'; appUrl: string; custPhone?: string;
   }): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
-    const plans = await LTESocksService.getPlans();
-    const plan = plans.find(p => p.id === params.planId);
-    if (!plan) throw new Error('Mobile plan not found.');
-    const trf = plan.tarifications[params.tarificationIndex];
-    if (!trf) throw new Error('Invalid duration selected.');
-    const amountUsd = trf.priceUsd;
+    const group = dbInstance.getMobilePlanGroups().find(g => g.planName === params.planName && g.countryCode === params.countryCode);
+    if (!group || group.availableCount <= 0) throw new Error('This plan is out of stock right now.');
+    const amountUsd = group.priceUsd;
 
     const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     dbInstance.insertTransaction({
       id: txnId, userId: params.userId, userEmail: params.userEmail, orderId: '',
       amountUsd, gateway: params.gateway, status: 'pending', createdAt: new Date().toISOString(),
-      purpose: 'mobile', mobilePlanId: params.planId, mobileTarificationIndex: params.tarificationIndex
+      purpose: 'mobile', mobilePlanName: params.planName, mobileCountryCode: params.countryCode
     });
 
     // --- ZiniPay ---
@@ -513,20 +510,27 @@ export class PaymentService {
     throw new Error('This payment method is not available right now.');
   }
 
-  /** Provision a paid mobile proxy: order the LTESocks port + save the record. */
+  /** Provision a paid mobile proxy: assign one from the admin's manual pool. */
   private static async provisionMobileForTxn(txn: PaymentTransaction): Promise<void> {
-    if (!txn.mobilePlanId) return;
-    // Create pending order; admin will assign proxy from inventory later
+    if (!txn.mobilePlanName) return;
+    const countryCode = txn.mobileCountryCode || '';
+    const proxy = dbInstance.assignAvailableMobileProxy(txn.userId, txn.mobilePlanName, countryCode);
+    if (proxy) {
+      dbInstance.log('info', 'proxy', `Mobile proxy assigned after gateway payment: ${txn.mobilePlanName} (${countryCode}) to user ${txn.userId}`);
+      return;
+    }
+    // Stock ran out while the customer was paying — fall back to a pending
+    // order so the admin can top up the pool and assign manually.
     dbInstance.insertMobileProxyOrder({
       id: `mo_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       userId: txn.userId,
-      planName: txn.mobilePlanId,
-      countryCode: '',  // will be updated when admin assigns
+      planName: txn.mobilePlanName,
+      countryCode,
       priceUsd: txn.amountUsd,
       status: 'pending',
       createdAt: new Date().toISOString()
     });
-    dbInstance.log('info', 'proxy', `Mobile proxy order created (pending) after gateway payment: ${txn.mobilePlanId} for user ${txn.userId}`);
+    dbInstance.log('warning', 'proxy', `Mobile proxy out of stock after payment — queued pending order: ${txn.mobilePlanName} (${countryCode}) for user ${txn.userId}`);
   }
 
   /**
@@ -714,7 +718,7 @@ export class PaymentService {
       return true;
     }
 
-    // Mobile proxy purchase: provision the LTESocks port after payment.
+    // Mobile proxy purchase: assign a proxy from the manual pool after payment.
     if (txn.purpose === 'mobile') {
       db.updateTransaction(txn.id, { status: 'completed' });
       try {

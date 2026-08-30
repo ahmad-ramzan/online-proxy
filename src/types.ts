@@ -15,7 +15,7 @@ export interface User {
   dueBalance: number;     // amount owed / payable (USD)
 }
 
-// A customer's mobile (LTESocks) proxy — one "port" ordered on their behalf.
+// A customer's mobile proxy — assigned from the admin's manually-managed pool.
 export interface MobileProxy {
   id: string;
   userId?: string;         // user who owns this proxy (empty = available in pool)
@@ -168,10 +168,11 @@ export interface PaymentTransaction {
   couponCode?: string;
   discountUsd?: number;
   // 'wallet' = a wallet top-up (credits balance, no order); 'mobile' = a mobile
-  // (LTESocks) proxy bought via a gateway; 'clear-due' = clearing due balance; default 'order'.
+  // proxy bought via a gateway from the manual admin-managed pool; 'clear-due' =
+  // clearing due balance; default 'order'.
   purpose?: 'order' | 'wallet' | 'mobile' | 'clear-due';
-  mobilePlanId?: string;
-  mobileTarificationIndex?: number;
+  mobilePlanName?: string;
+  mobileCountryCode?: string;
 }
 
 // Discount coupons — admin creates, clients apply at checkout.
@@ -256,15 +257,6 @@ export interface PaymentSettings {
   cryptomusMerchantId?: string;  // Merchant UUID
   cryptomusApiKey?: string;      // Payment API key
   cryptomusBaseUrl?: string;     // default https://api.cryptomus.com
-  // LTESocks — mobile (5G/LTE) proxy provider
-  ltesocksApiKey?: string;       // Authorization token (include the "Bearer " prefix)
-  ltesocksBaseUrl?: string;      // default https://api.ltesocks.io/v2
-  ltesocksPriceDivisor?: number; // LTESocks plan price unit → USD (default 100 = cents)
-  ltesocksCountries?: string;    // comma-separated ISO-2 codes shown in the Mobile tab
-  ltesocksPrices?: string;       // custom resale prices "days:usd" e.g. "7:4.10, 15:8.15, 30:15.75"
-  ltesocksMaxSpeed?: number;     // displayed max speed (mbit/s) on mobile cards
-  ltesocksAvailablePlans?: string; // comma-separated plan-name fragments forced "in stock" (blank = live availability)
-  ltesocksStock?: number;          // IP-Pool/stock number shown on mobile cards (admin-set)
 }
 
 export interface WebsiteSettings {
