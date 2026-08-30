@@ -188,6 +188,23 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     }
   };
 
+  const handleSetUserBalance = async (userId: string, current: number) => {
+    const input = prompt('Set Main Balance (USD) for this user. Due Balance is not affected:', String(current || 0));
+    if (input === null) return;
+    const amount = parseFloat(input);
+    if (!Number.isFinite(amount) || amount < 0) { alert('Enter a valid amount (0 or more).'); return; }
+    setActionLoading(true);
+    try {
+      await api.admin.setUserBalance(userId, amount);
+      triggerNotify(`Main Balance set to $${amount.toFixed(2)}.`);
+      await loadAdminData();
+    } catch (e: any) {
+      alert(e.message || 'Failed to set balance.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 2. Package Actions
   const handleCreatePackage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -621,6 +638,12 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                           className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-blue-500/10 hover:bg-blue-500/20 text-blue-400"
                         >
                           Password
+                        </button>
+                        <button
+                          onClick={() => handleSetUserBalance(usr.id, (usr as any).mainBalance || 0)}
+                          className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400"
+                        >
+                          Balance{(usr as any).mainBalance ? ` $${((usr as any).mainBalance).toFixed(2)}` : ''}
                         </button>
                         <button
                           onClick={() => handleSetUserDue(usr.id, (usr as any).dueBalance || 0)}

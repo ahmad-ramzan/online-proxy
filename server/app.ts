@@ -1265,6 +1265,18 @@ app.post('/api/admin/users/due', authenticateToken, requireAdmin, (req, res) => 
   res.json({ user: updated });
 });
 
+// Admin: directly set a user's Main Balance. This is independent of Due —
+// editing Main Balance never touches dueBalance.
+app.post('/api/admin/users/balance', authenticateToken, requireAdmin, (req, res) => {
+  const { userId, balance } = req.body;
+  if (!userId) return res.status(400).json({ error: 'User ID is required.' });
+  const amount = Math.max(0, Math.round((parseFloat(balance) || 0) * 100) / 100);
+  const updated = dbInstance.updateUser(userId, { mainBalance: amount });
+  if (!updated) return res.status(404).json({ error: 'User profile not found.' });
+  dbInstance.log('security', 'admin', `Admin set Main Balance for ${updated.email} to $${amount}.`);
+  res.json({ user: updated });
+});
+
 app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   const userId = req.params.id;
   const target = dbInstance.getUsers().find(u => u.id === userId);

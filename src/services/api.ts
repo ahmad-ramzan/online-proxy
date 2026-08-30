@@ -397,6 +397,16 @@ export const api = {
       return (await res.json()).user;
     },
 
+    async setUserBalance(userId: string, balance: number): Promise<User> {
+      const res = await fetch(`${API_BASE}/api/admin/users/balance`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ userId, balance })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to set balance'); }
+      return (await res.json()).user;
+    },
+
     async deleteUser(userId: string): Promise<boolean> {
       const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
         method: 'DELETE',
