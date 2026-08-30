@@ -23,6 +23,23 @@ export default function AdminMobileProxyList() {
     countryCode: '',
     priceUsd: 0
   });
+  const [quickPaste, setQuickPaste] = useState('');
+  const [quickPasteError, setQuickPasteError] = useState('');
+
+  // Parse "username:password@ip:port" into the individual fields.
+  const handleQuickPaste = (value: string) => {
+    setQuickPaste(value);
+    const trimmed = value.trim();
+    if (!trimmed) { setQuickPasteError(''); return; }
+    const match = trimmed.match(/^([^:@]+):([^:@]+)@([^:@]+):(\d+)$/);
+    if (!match) {
+      setQuickPasteError('Expected format: username:password@ip:port');
+      return;
+    }
+    const [, username, password, ip, port] = match;
+    setFormData(f => ({ ...f, username, password, ip, port }));
+    setQuickPasteError('');
+  };
 
   // Load proxies
   useEffect(() => {
@@ -59,6 +76,8 @@ export default function AdminMobileProxyList() {
       });
 
       setFormData({ ip: '', port: '', username: '', password: '', planName: '', countryCode: '', priceUsd: 0 });
+      setQuickPaste('');
+      setQuickPasteError('');
       setShowForm(false);
       await loadProxies();
       alert('Proxy added successfully');
@@ -111,6 +130,18 @@ export default function AdminMobileProxyList() {
       {showForm && (
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 space-y-4">
           <h4 className="font-bold text-white">Add New Mobile Proxy</h4>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Quick paste (username:password@ip:port)</label>
+            <input
+              type="text"
+              placeholder="dF9Powb7U0:Ae8FfVdKZD@143.110.160.236:10808"
+              value={quickPaste}
+              onChange={(e) => handleQuickPaste(e.target.value)}
+              className={`w-full bg-slate-950 border rounded-lg px-3 py-2 text-sm text-white font-mono ${quickPasteError ? 'border-red-500' : 'border-slate-700'}`}
+            />
+            {quickPasteError && <p className="text-[10px] text-red-400">{quickPasteError}</p>}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input
