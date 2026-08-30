@@ -131,6 +131,8 @@ app.post('/api/auth/register', (req, res) => {
     name,
     role: isFirstUserAdmin ? 'admin' : 'user',
     isActive: true,
+    mainBalance: 0,
+    dueBalance: 0,
     createdAt: new Date().toISOString()
   };
 
@@ -281,6 +283,8 @@ app.post('/api/auth/google', async (req, res) => {
       name,
       role: 'user',
       isActive: true,
+      mainBalance: 0,
+      dueBalance: 0,
       createdAt: new Date().toISOString()
     };
     dbInstance.insertUser(user);
@@ -658,8 +662,8 @@ app.post('/api/payment/create-session', authenticateToken, async (req, res) => {
 app.get('/api/wallet', authenticateToken, (req, res) => {
   const user = dbInstance.getUsers().find(u => u.id === req.user!.id);
   res.json({
-    balance: user?.walletBalance || 0,
-    due: user?.walletDue || 0,
+    balance: user?.mainBalance || 0,
+    due: user?.dueBalance || 0,
     transactions: dbInstance.getWalletTransactionsByUser(req.user!.id)
   });
 });
@@ -1188,7 +1192,7 @@ app.post('/api/admin/users/due', authenticateToken, requireAdmin, (req, res) => 
   const { userId, due } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID is required.' });
   const amount = Math.max(0, Math.round((parseFloat(due) || 0) * 100) / 100);
-  const updated = dbInstance.updateUser(userId, { walletDue: amount });
+  const updated = dbInstance.updateUser(userId, { dueBalance: amount });
   if (!updated) return res.status(404).json({ error: 'User profile not found.' });
   dbInstance.log('security', 'admin', `Admin set wallet Due for ${updated.email} to $${amount}.`);
   res.json({ user: updated });

@@ -562,9 +562,9 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                       </td>
                       <td className="py-3.5">
                         <div className="space-y-1 text-[10px]">
-                          <div className="text-emerald-400 font-bold">${((usr as any).walletBalance || 0).toFixed(2)}</div>
-                          {((usr as any).walletDue || 0) > 0 && (
-                            <div className="text-red-400 font-bold">Due: ${((usr as any).walletDue).toFixed(2)}</div>
+                          <div className="text-emerald-400 font-bold">${((usr as any).mainBalance || 0).toFixed(2)}</div>
+                          {((usr as any).dueBalance || 0) > 0 && (
+                            <div className="text-red-400 font-bold">Due: ${((usr as any).dueBalance).toFixed(2)}</div>
                           )}
                         </div>
                       </td>
@@ -593,10 +593,10 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                           Password
                         </button>
                         <button
-                          onClick={() => handleSetUserDue(usr.id, (usr as any).walletDue || 0)}
+                          onClick={() => handleSetUserDue(usr.id, (usr as any).dueBalance || 0)}
                           className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-400"
                         >
-                          Due{(usr as any).walletDue ? ` $${((usr as any).walletDue).toFixed(2)}` : ''}
+                          Due{(usr as any).dueBalance ? ` $${((usr as any).dueBalance).toFixed(2)}` : ''}
                         </button>
                         <button
                           onClick={async () => {
