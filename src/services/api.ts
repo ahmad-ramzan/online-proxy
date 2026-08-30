@@ -578,6 +578,19 @@ export const api = {
       return true;
     },
 
+    async updateMobileProxy(proxyId: string, updates: Partial<{ ip: string; port: string; username: string; password: string; planName: string; countryCode: string; priceUsd: number; status: string }>): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-proxies/${proxyId}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update proxy');
+      }
+      return res.json();
+    },
+
     async updateMobileProxyStatus(proxyId: string, status: string): Promise<any> {
       const res = await fetch(`${API_BASE}/api/admin/mobile-proxies/${proxyId}`, {
         method: 'PUT',

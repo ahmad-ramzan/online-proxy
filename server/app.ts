@@ -1086,20 +1086,34 @@ app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res
 // Admin updates proxy status (enable/disable)
 app.put('/api/admin/mobile-proxies/:proxyId', authenticateToken, requireAdmin, (req, res) => {
   const { proxyId } = req.params;
-  const { status } = req.body;
+  const { status, ip, port, username, password, planName, countryCode, priceUsd } = req.body;
   const proxy = dbInstance.getMobileProxyById(proxyId);
 
   if (!proxy) {
     return res.status(404).json({ error: 'Proxy not found.' });
   }
 
-  if (!status || !['available', 'inactive', 'assigned'].includes(status)) {
+  if (status !== undefined && !['available', 'inactive', 'assigned'].includes(status)) {
     return res.status(400).json({ error: 'Invalid status. Must be: available, inactive, or assigned.' });
   }
 
+  const updates: Record<string, any> = {};
+  if (status !== undefined) updates.status = status;
+  if (ip !== undefined) updates.ip = String(ip);
+  if (port !== undefined) updates.port = String(port);
+  if (username !== undefined) updates.username = String(username);
+  if (password !== undefined) updates.password = String(password);
+  if (planName !== undefined) updates.planName = String(planName);
+  if (countryCode !== undefined) updates.countryCode = String(countryCode);
+  if (priceUsd !== undefined) updates.priceUsd = parseFloat(priceUsd) || 0;
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No fields to update.' });
+  }
+
   try {
-    dbInstance.updateMobileProxy(proxyId, { status });
-    dbInstance.log('info', 'proxy', `Admin updated proxy status: ${proxy.ip}:${proxy.port} -> ${status}`);
+    dbInstance.updateMobileProxy(proxyId, updates);
+    dbInstance.log('info', 'proxy', `Admin updated proxy: ${proxy.ip}:${proxy.port}`);
     res.json({ success: true, proxy: dbInstance.getMobileProxyById(proxyId) });
   } catch (e: any) {
     console.error('[/api/admin/mobile-proxies/:proxyId] Error:', e.message || e);

@@ -58,32 +58,67 @@ export default function AdminMobileProxyList() {
     }
   };
 
-  const handleAdd = async () => {
+  const resetForm = () => {
+    setFormData({ ip: '', port: '', username: '', password: '', planName: '', countryCode: '', priceUsd: 0 });
+    setQuickPaste('');
+    setQuickPasteError('');
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const handleSave = async () => {
     if (!formData.ip || !formData.port || !formData.username || !formData.password) {
       alert('Please fill all fields');
       return;
     }
 
     try {
-      await api.admin.addMobileProxy({
-        ip: formData.ip,
-        port: formData.port,
-        username: formData.username,
-        password: formData.password,
-        planName: formData.planName || 'Standard',
-        countryCode: formData.countryCode || 'US',
-        priceUsd: parseFloat(formData.priceUsd.toString()) || 5
-      });
-
-      setFormData({ ip: '', port: '', username: '', password: '', planName: '', countryCode: '', priceUsd: 0 });
-      setQuickPaste('');
-      setQuickPasteError('');
-      setShowForm(false);
-      await loadProxies();
-      alert('Proxy added successfully');
+      if (editingId) {
+        await api.admin.updateMobileProxy(editingId, {
+          ip: formData.ip,
+          port: formData.port,
+          username: formData.username,
+          password: formData.password,
+          planName: formData.planName || 'Standard',
+          countryCode: formData.countryCode || 'US',
+          priceUsd: parseFloat(formData.priceUsd.toString()) || 5
+        });
+        resetForm();
+        await loadProxies();
+        alert('Proxy updated successfully');
+      } else {
+        await api.admin.addMobileProxy({
+          ip: formData.ip,
+          port: formData.port,
+          username: formData.username,
+          password: formData.password,
+          planName: formData.planName || 'Standard',
+          countryCode: formData.countryCode || 'US',
+          priceUsd: parseFloat(formData.priceUsd.toString()) || 5
+        });
+        resetForm();
+        await loadProxies();
+        alert('Proxy added successfully');
+      }
     } catch (e: any) {
-      alert(e.message || 'Failed to add proxy');
+      alert(e.message || 'Failed to save proxy');
     }
+  };
+
+  const handleEdit = (proxy: MobileProxy) => {
+    setEditingId(proxy.id);
+    setFormData({
+      ip: proxy.ip,
+      port: proxy.port,
+      username: proxy.username,
+      password: proxy.password,
+      planName: proxy.planName,
+      countryCode: proxy.countryCode,
+      priceUsd: proxy.priceUsd
+    });
+    setQuickPaste('');
+    setQuickPasteError('');
+    setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -119,17 +154,17 @@ export default function AdminMobileProxyList() {
           Mobile Proxy Pool
         </h3>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { if (showForm) { resetForm(); } else { setShowForm(true); } }}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> Add Proxy
         </button>
       </div>
 
-      {/* Add Form */}
+      {/* Add / Edit Form */}
       {showForm && (
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 space-y-4">
-          <h4 className="font-bold text-white">Add New Mobile Proxy</h4>
+          <h4 className="font-bold text-white">{editingId ? 'Edit Mobile Proxy' : 'Add New Mobile Proxy'}</h4>
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-500 uppercase">Quick paste (username:password@ip:port)</label>
@@ -197,13 +232,13 @@ export default function AdminMobileProxyList() {
 
           <div className="flex gap-2">
             <button
-              onClick={handleAdd}
+              onClick={handleSave}
               className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-bold rounded-lg"
             >
-              Save
+              {editingId ? 'Update' : 'Save'}
             </button>
             <button
-              onClick={() => setShowForm(false)}
+              onClick={resetForm}
               className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded-lg"
             >
               Cancel
@@ -255,6 +290,12 @@ export default function AdminMobileProxyList() {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right space-x-2">
+                    <button
+                      onClick={() => handleEdit(proxy)}
+                      className="px-2 py-1 text-[10px] font-bold rounded cursor-pointer bg-blue-500/10 hover:bg-blue-500/20 text-blue-400"
+                    >
+                      <Edit2 className="w-3 h-3 inline" /> Edit
+                    </button>
                     <button
                       onClick={() => handleToggleStatus(proxy.id, proxy.status)}
                       className="px-2 py-1 text-[10px] font-bold rounded cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-300"
