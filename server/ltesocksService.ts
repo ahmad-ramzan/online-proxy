@@ -150,11 +150,8 @@ export class LTESocksService {
 
   /** Order a new port from a plan + tarification. Costs the LTESocks balance. */
   public static async orderPort(planId: string, tarification: LteTarification): Promise<LteOrderedPort> {
-    // LTeSocks' order endpoint expects a positive traffic quota in MB; sending back
-    // the -1/0 "unlimited" marker from the /plans listing crashes their server (HTTP 500).
-    // Substitute a very large quota instead.
-    const traffic = (tarification.traffic === -1 || tarification.traffic === 0) ? 999999999 : tarification.traffic;
-    const payload = { plan: planId, tarification: { time: tarification.time, traffic, price: tarification.price } };
+    // Send the tarification object exactly as returned by LTeSocks /plans endpoint
+    const payload = { plan: planId, tarification: { time: tarification.time, traffic: tarification.traffic, price: tarification.price } };
     console.log('[LTeSocks] Ordering port with payload:', JSON.stringify(payload));
     try {
       const d = await Promise.race([
