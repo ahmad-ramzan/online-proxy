@@ -101,20 +101,20 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
               return (
                 <div key={m.id} className="bg-slate-900/50 border border-slate-850 rounded-2xl p-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{flagEmoji(m.countryCode)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl">{flagEmoji(m.countryCode)}</span>
                       <div>
-                        <p className="text-xs font-bold text-white">{m.planName}</p>
-                        <p className="text-[10px] text-slate-500">{(m.protocol || 'socks5').toUpperCase()}</p>
+                        <p className="text-sm font-bold text-white">{m.planName}</p>
+                        <p className="text-[11px] text-slate-500">{(m.protocol || 'socks5').toUpperCase()}</p>
                       </div>
                     </div>
                     <button onClick={() => remove(m)} disabled={busyId === m.id} className="p-1.5 bg-slate-800 hover:bg-red-900/40 border border-slate-700 rounded-lg text-slate-400 hover:text-red-300 cursor-pointer">
                       {busyId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <button onClick={() => copy(m.id, conn)} className="mt-3 w-full flex items-center justify-between gap-3 bg-slate-950 border border-slate-850 rounded-xl px-3 py-2 cursor-pointer group">
-                    <span className="font-mono text-[11px] text-slate-300 truncate">{conn}</span>
-                    {copiedId === m.id ? <Check className="w-3.5 h-3.5 text-green-400 shrink-0" /> : <Copy className="w-3.5 h-3.5 text-slate-500 group-hover:text-white shrink-0" />}
+                  <button onClick={() => copy(m.id, conn)} className="mt-3 w-full flex items-center justify-between gap-3 bg-slate-950 border border-slate-850 rounded-xl px-4 py-3 cursor-pointer group">
+                    <span className="font-mono text-sm text-slate-300 truncate">{conn}</span>
+                    {copiedId === m.id ? <Check className="w-5 h-5 text-green-400 shrink-0" /> : <Copy className="w-5 h-5 text-slate-500 group-hover:text-white shrink-0" />}
                   </button>
                 </div>
               );
@@ -148,7 +148,7 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
               <div key={`${plan.planName}::${plan.countryCode}`} className="bg-slate-950/60 border border-slate-850 hover:border-violet-500/40 rounded-2xl p-5 flex flex-col justify-between transition-colors">
                 <div>
                   <div className="flex items-center gap-2.5 border-b border-slate-850 pb-3 mb-3">
-                    <span className="text-2xl">{flagEmoji(plan.countryCode)}</span>
+                    <span className="text-4xl">{flagEmoji(plan.countryCode)}</span>
                     <p className="text-sm font-bold text-white leading-snug">{plan.planName}</p>
                   </div>
                   <div className="flex justify-between gap-4 text-[11px]">
