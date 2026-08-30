@@ -933,6 +933,9 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                         <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${c.isActive ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>
                           {c.isActive ? 'Active' : 'Off'}
                         </span>
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border bg-indigo-500/10 text-indigo-300 border-indigo-500/20">
+                          {c.category && c.category !== 'both' ? c.category : 'Both'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleToggleCoupon(c.id)} title="Toggle active" className="text-slate-400 hover:text-white cursor-pointer">
@@ -1732,6 +1735,25 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               <p className="text-xs text-slate-500">Manage assigned IPs for residential proxy orders</p>
             </div>
 
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-center">
+                <p className="text-[9px] font-bold text-slate-500 uppercase">Total Stock</p>
+                <p className="text-xl font-black text-white mt-1">{hostedIps.length}</p>
+              </div>
+              <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-center">
+                <p className="text-[9px] font-bold text-slate-500 uppercase">Assigned</p>
+                <p className="text-xl font-black text-blue-400 mt-1">{hostedIps.filter((ip: any) => ip.status === 'assigned').length}</p>
+              </div>
+              <div className={`border rounded-xl p-3 text-center ${hostedIps.filter((ip: any) => ip.status === 'available').length === 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-slate-950/50 border-slate-800'}`}>
+                <p className="text-[9px] font-bold text-slate-500 uppercase">Available</p>
+                <p className={`text-xl font-black mt-1 ${hostedIps.filter((ip: any) => ip.status === 'available').length === 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {hostedIps.filter((ip: any) => ip.status === 'available').length === 0
+                    ? 'OUT OF STOCK'
+                    : hostedIps.filter((ip: any) => ip.status === 'available').length}
+                </p>
+              </div>
+            </div>
+
             <div className="flex gap-3 mb-6">
               <input
                 type="text"
@@ -1836,7 +1858,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         )}
 
         {/* MOBILE PLANS MANAGEMENT TAB */}
-        {activeTab === 'mobile-plans' && (
+        {activeTab === 'mobile-plans' && paymentSettings && (
           <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-6 animate-fade-in">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-white">Mobile Plan Pricing</h3>
@@ -1849,7 +1871,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 <input
                   type="text"
                   placeholder="US, GB, DE, FR"
-                  defaultValue={paymentSettings?.ltesocksCountries || ''}
+                  value={paymentSettings.ltesocksCountries || ''}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksCountries: e.target.value })}
                   className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -1859,9 +1882,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 <input
                   type="text"
                   placeholder="7:4.10, 15:8.15, 30:15.75"
-                  defaultValue={paymentSettings?.ltesocksPrices || ''}
+                  value={paymentSettings.ltesocksPrices || ''}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksPrices: e.target.value })}
                   className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
                 />
+                <p className="text-[10px] text-slate-500">e.g. "7:4.10, 15:8.15, 30:15.75" → 7-day plan $4.10, 15-day plan $8.15, 30-day plan $15.75. Add or remove pairs to create/delete plan durations.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1870,7 +1895,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   <input
                     type="number"
                     placeholder="200"
-                    defaultValue={paymentSettings?.ltesocksMaxSpeed || '200'}
+                    value={paymentSettings.ltesocksMaxSpeed ?? ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksMaxSpeed: parseFloat(e.target.value) || 0 })}
                     className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -1879,7 +1905,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   <input
                     type="number"
                     placeholder="100"
-                    defaultValue={paymentSettings?.ltesocksStock || '100'}
+                    value={paymentSettings.ltesocksStock ?? ''}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksStock: parseFloat(e.target.value) || 0 })}
                     className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -1890,25 +1917,34 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 <input
                   type="text"
                   placeholder="unlimited_5g, unlimited_4g, 50gb_5g"
-                  defaultValue={paymentSettings?.ltesocksAvailablePlans || ''}
+                  value={paymentSettings.ltesocksAvailablePlans || ''}
+                  onChange={(e) => setPaymentSettings({ ...paymentSettings, ltesocksAvailablePlans: e.target.value })}
                   className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <button
-                onClick={() => {
-                  setSuccessMessage('Mobile plans configuration saved (manually configure in settings)');
-                  setTimeout(() => setSuccessMessage(''), 3000);
+                onClick={async () => {
+                  setActionLoading(true);
+                  try {
+                    await api.admin.updateGlobalSettings({
+                      api: apiSettings,
+                      payment: paymentSettings,
+                      website: websiteSettings
+                    });
+                    triggerNotify('Mobile plans configuration saved!');
+                    await loadAdminData();
+                  } catch (e: any) {
+                    alert(e.message || 'Failed to save mobile plans configuration.');
+                  } finally {
+                    setActionLoading(false);
+                  }
                 }}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors"
+                disabled={actionLoading}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors"
               >
-                Save Mobile Plans Config
+                {actionLoading ? 'Saving...' : 'Save Mobile Plans Config'}
               </button>
-            </div>
-
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 text-sm text-blue-300">
-              <p className="font-semibold mb-2">Note:</p>
-              <p>Mobile plan settings are stored in Global Settings. Edit the PaymentSettings to update LTeSocks integration parameters.</p>
             </div>
           </div>
         )}

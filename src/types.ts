@@ -184,6 +184,7 @@ export interface Coupon {
   maxUses: number;              // 0 = unlimited
   usedCount: number;
   createdAt: string;
+  category?: 'residential' | 'mobile' | 'both'; // which proxy type this coupon applies to
 }
 
 export interface SystemLog {

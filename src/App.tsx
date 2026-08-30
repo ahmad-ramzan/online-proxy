@@ -8,7 +8,7 @@ import {
   Shield, Server, Key, LayoutDashboard, Compass, Lock,
   Loader2, LogOut, Code, AlertTriangle, Users, Database, ArrowLeft, Globe, Zap,
   HelpCircle, PlayCircle, Menu, X, Megaphone, Pin, Tag, Bell, ChevronDown, Settings,
-  Edit2, Save, Image, ExternalLink, Wallet, Plus, Smartphone, AlertCircle
+  Edit2, Save, Image, Wallet, Plus, Smartphone, AlertCircle
 } from 'lucide-react';
 import { User, ProxyPackage, CreatedProxy, ProxyOrder, PaymentTransaction } from './types';
 import { api } from './services/api';
@@ -713,7 +713,7 @@ export default function App() {
                         className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
                       >
                         {row.value}
-                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                        <span className="text-xs">↗</span>
                       </a>
                     ) : (
                       row.value
@@ -1961,7 +1961,20 @@ export default function App() {
                 onClick={async () => {
                   try {
                     const res = await api.payment.clearDueCheckout(clearDueGateway as any);
-                    window.location.href = res.checkoutUrl;
+                    if (res.external || /^https?:\/\//i.test(res.checkoutUrl)) {
+                      window.location.href = res.checkoutUrl;
+                      return;
+                    }
+                    // In-app simulated checkout — parse the simulated URL parameters.
+                    const urlParams = new URLSearchParams(res.checkoutUrl.split('?')[1]);
+                    setShowClearDueModal(false);
+                    setActiveCheckout({
+                      transactionId: urlParams.get('transactionId') || '',
+                      orderId: urlParams.get('orderId') || '',
+                      amount: parseFloat(urlParams.get('amount') || '0'),
+                      gateway: (urlParams.get('gateway') as any) || 'stripe'
+                    });
+                    setPage('checkout');
                   } catch (e: any) {
                     alert(e.message || 'Failed to initiate payment');
                   }

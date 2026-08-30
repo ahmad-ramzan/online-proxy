@@ -747,24 +747,33 @@ app.get('/api/mobile/my', authenticateToken, (req, res) => {
 // Order a mobile proxy, paying from the wallet balance.
 // Customer orders mobile proxy via wallet; admin assigns from inventory later
 app.post('/api/mobile/order', authenticateToken, async (req, res) => {
-  const { planId, planName, countryCode, priceUsd } = req.body;
-  if (!planId || !planName || !countryCode || priceUsd === undefined) {
-    return res.status(400).json({ error: 'planId, planName, countryCode, priceUsd are required.' });
+  const { planId, tarificationIndex } = req.body;
+  if (!planId || tarificationIndex === undefined) {
+    return res.status(400).json({ error: 'planId and tarificationIndex are required.' });
   }
   try {
-    const debit = dbInstance.debitWallet(req.user!.id, priceUsd, `Mobile proxy: ${planName}`);
+    // Server-authoritative pricing: look up the plan + tarification ourselves
+    // rather than trusting a client-supplied price.
+    const plans = await LTESocksService.getPlans();
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) return res.status(400).json({ error: 'Mobile plan not found.' });
+    const trf = plan.tarifications[Number(tarificationIndex)];
+    if (!trf) return res.status(400).json({ error: 'Invalid duration selected.' });
+    const priceUsd = trf.priceUsd;
+
+    const debit = dbInstance.debitWallet(req.user!.id, priceUsd, `Mobile proxy: ${plan.name}`);
     if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
 
     const order = dbInstance.insertMobileProxyOrder({
       id: `mo_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       userId: req.user!.id,
-      planName,
-      countryCode,
+      planName: plan.name,
+      countryCode: plan.countryCode,
       priceUsd,
       status: 'pending',
       createdAt: new Date().toISOString()
     });
-    dbInstance.log('info', 'proxy', `Mobile proxy order created (pending): ${planName} for user ${req.user!.id}`);
+    dbInstance.log('info', 'proxy', `Mobile proxy order created (pending): ${plan.name} for user ${req.user!.id}`);
     res.json({ order });
   } catch (e: any) {
     console.error('[/api/mobile/order] Error:', e.message || e);
@@ -990,31 +999,16 @@ app.post('/api/payment/clear-due-checkout', authenticateToken, async (req, res) 
   if (!gateway) return res.status(400).json({ error: 'Payment gateway is required.' });
 
   try {
-    const session = await PaymentService.createCheckoutSession({
+    const session = await PaymentService.createClearDueCheckoutSession({
       userId: req.user!.id,
       userEmail: user.email,
-      packageId: '', // N/A for due payment
       amountUsd: user.dueBalance,
       gateway: gateway as any,
       appUrl: process.env.APP_URL,
       custPhone
     });
 
-    // Create a special transaction for due payment
-    const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    dbInstance.insertTransaction({
-      id: txnId,
-      userId: req.user!.id,
-      userEmail: user.email,
-      orderId: `due_${txnId}`,
-      amountUsd: user.dueBalance,
-      gateway: gateway as any,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      purpose: 'clear-due'
-    });
-
-    res.json({ checkoutUrl: session.checkoutUrl, transactionId: txnId });
+    res.json({ checkoutUrl: session.checkoutUrl, transactionId: session.transactionId, external: session.external });
   } catch (e: any) {
     res.status(400).json({ error: e.message || 'Failed to create checkout session.' });
   }
@@ -1401,7 +1395,7 @@ app.post('/api/admin/coupons', authenticateToken, requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'A coupon with this code already exists.' });
   }
 
-  const coupon: Coupon & { category?: string } = {
+  const coupon: Coupon = {
     id: `cpn_${Date.now()}`,
     code: normCode,
     type,
@@ -1412,9 +1406,9 @@ app.post('/api/admin/coupons', authenticateToken, requireAdmin, (req, res) => {
     createdAt: new Date().toISOString()
   };
   if (category && ['residential', 'mobile', 'both'].includes(category)) {
-    (coupon as any).category = category;
+    coupon.category = category;
   }
-  dbInstance.insertCoupon(coupon as any);
+  dbInstance.insertCoupon(coupon);
   res.status(201).json({ coupon });
 });
 

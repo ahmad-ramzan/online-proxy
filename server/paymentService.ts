@@ -47,9 +47,9 @@ export class PaymentService {
     }
 
     // Check coupon category compatibility
-    if (proxyType && (coupon as any).category && (coupon as any).category !== 'both') {
-      if ((coupon as any).category !== proxyType) {
-        return { finalUsd: baseUsd, discountUsd: 0, error: `This coupon only works for ${(coupon as any).category} proxies.` };
+    if (proxyType && coupon.category && coupon.category !== 'both') {
+      if (coupon.category !== proxyType) {
+        return { finalUsd: baseUsd, discountUsd: 0, error: `This coupon only works for ${coupon.category} proxies.` };
       }
     }
 
@@ -359,6 +359,88 @@ export class PaymentService {
     }
 
     throw new Error('This payment method is not available for top-up right now.');
+  }
+
+  /**
+   * Starts a CLEAR-DUE payment: creates a `purpose: 'clear-due'` transaction for
+   * the user's outstanding due balance and routes it to the chosen gateway. On
+   * completion the shared callbacks reduce dueBalance (see completePaymentTransaction).
+   */
+  public static async createClearDueCheckoutSession(params: {
+    userId: string;
+    userEmail: string;
+    amountUsd: number;
+    gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' | 'cryptomus';
+    appUrl?: string;
+    custPhone?: string;
+  }): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
+    const amountUsd = Math.round((params.amountUsd || 0) * 100) / 100;
+    if (!amountUsd || amountUsd <= 0) throw new Error('No due balance to clear.');
+
+    const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    dbInstance.insertTransaction({
+      id: txnId,
+      userId: params.userId,
+      userEmail: params.userEmail,
+      orderId: '',
+      amountUsd,
+      gateway: params.gateway,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      purpose: 'clear-due'
+    });
+
+    // --- ZiniPay ---
+    if (params.gateway === 'credit_card' && ZiniPayService.isConfigured() && params.appUrl) {
+      const amountBdt = ZiniPayService.usdToBdt(amountUsd);
+      const invoice = await ZiniPayService.createInvoice({
+        name: params.userEmail.split('@')[0] || 'Customer', email: params.userEmail, amountBdt,
+        redirectUrl: `${params.appUrl}/api/payment/zinipay/return/${txnId}`,
+        cancelUrl: `${params.appUrl}/api/payment/zinipay/cancel/${txnId}`,
+        webhookUrl: `${params.appUrl}/api/payment/zinipay/webhook`,
+        metadata: { txnId, purpose: 'clear-due', userId: params.userId }
+      });
+      if (invoice.ok && invoice.paymentUrl) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: invoice.invoiceId });
+        return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'ZiniPay checkout could not be created.');
+    }
+
+    // --- PayStation ---
+    if (params.gateway === 'paystation' && PayStationService.isConfigured() && params.appUrl) {
+      const invoice = await PayStationService.createInvoice({
+        invoiceNumber: txnId, name: params.userEmail.split('@')[0] || 'Customer',
+        phone: (params.custPhone || '').trim() || '01700000000', email: params.userEmail,
+        address: 'Bangladesh', amountBdt: PayStationService.usdToBdt(amountUsd),
+        reference: 'clear-due', callbackUrl: `${params.appUrl}/api/payment/paystation/callback`
+      });
+      if (invoice.ok && invoice.paymentUrl) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId });
+        return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'PayStation checkout could not be created.');
+    }
+
+    // --- Cryptomus ---
+    if (params.gateway === 'cryptomus' && CryptomusService.isConfigured() && params.appUrl) {
+      const invoice = await CryptomusService.createInvoice({
+        orderId: txnId, amountUsd,
+        callbackUrl: `${params.appUrl}/api/payment/cryptomus/callback`,
+        returnUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`,
+        successUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`
+      });
+      if (invoice.ok && invoice.url) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId, providerTxnId: invoice.uuid });
+        return { checkoutUrl: invoice.url, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'Cryptomus checkout could not be created.');
+    }
+
+    // Fallback: simulated in-app checkout (demo stripe / crypto / paypal gateways)
+    const checkoutUrl = `/checkout-simulation?transactionId=${txnId}&orderId=&amount=${amountUsd}&gateway=${params.gateway}`;
+    dbInstance.log('info', 'payment', `Clear-due checkout session pre-allocated: TransID: ${txnId} for $${amountUsd}`);
+    return { checkoutUrl, transactionId: txnId };
   }
 
   /**

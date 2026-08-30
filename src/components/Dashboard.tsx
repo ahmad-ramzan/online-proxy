@@ -4,10 +4,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Server, Shield, Database, Activity, RefreshCw, Trash2, 
-  Copy, Check, Plus, Globe, ExternalLink, Flame, ShieldAlert,
-  Terminal, ShoppingBag, ArrowRight, Zap 
+import {
+  Server, Shield, Database, Activity, RefreshCw, Trash2,
+  Copy, Check, Plus, Globe, Flame, ShieldAlert,
+  Terminal, ShoppingBag, ArrowRight, Zap
 } from 'lucide-react';
 import { User, CreatedProxy, ProxyOrder, PaymentTransaction } from '../types';
 import { api } from '../services/api';
