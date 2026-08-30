@@ -8,7 +8,7 @@ import path from 'path';
 import {
   User, ProxyPackage, ProxyOrder, CreatedProxy,
   PaymentTransaction, SystemLog, CountryConfig,
-  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder
+  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder, HostedIP, ClearDuePayment
 } from '../src/types';
 
 // JSON file "database". On a VPS this persists on disk across restarts.
@@ -33,6 +33,8 @@ interface DatabaseSchema {
   walletTransactions: WalletTransaction[];
   mobileProxies: MobileProxy[];
   mobileProxyOrders: MobileProxyOrder[];
+  hostedIps: HostedIP[];
+  clearDuePayments: ClearDuePayment[];
 }
 
 const DEFAULT_DB: DatabaseSchema = {
@@ -43,6 +45,8 @@ const DEFAULT_DB: DatabaseSchema = {
       name: 'Sarah Connor',
       role: 'admin',
       isActive: true,
+      mainBalance: 0,
+      dueBalance: 0,
       createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     }
   ],
@@ -72,6 +76,8 @@ const DEFAULT_DB: DatabaseSchema = {
   walletTransactions: [],
   mobileProxies: [],
   mobileProxyOrders: [],
+  hostedIps: [],
+  clearDuePayments: [],
   logs: [
     {
       id: 'log_1',
@@ -322,8 +328,8 @@ class Database {
     const user = db.users.find(u => u.id === userId);
     if (!user) return 0;
     // Top-up adds to the balance. "Due" is admin-controlled and untouched here.
-    const newBalance = Math.round(((user.walletBalance || 0) + amountUsd) * 100) / 100;
-    user.walletBalance = newBalance;
+    const newBalance = Math.round(((user.mainBalance || 0) + amountUsd) * 100) / 100;
+    user.mainBalance = newBalance;
     if (!db.walletTransactions) db.walletTransactions = [];
     db.walletTransactions.push({
       id: `wtx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -344,20 +350,20 @@ class Database {
     const user = db.users.find(u => u.id === userId);
     if (!user) return { balance: 0, due: 0 };
     const price = Math.round(amountUsd * 100) / 100;
-    const bal = user.walletBalance || 0;
+    const bal = user.mainBalance || 0;
     const fromBalance = Math.min(bal, price);
     const shortfall = Math.round((price - fromBalance) * 100) / 100;
-    user.walletBalance = Math.round((bal - fromBalance) * 100) / 100;
-    if (shortfall > 0) user.walletDue = Math.round(((user.walletDue || 0) + shortfall) * 100) / 100;
+    user.mainBalance = Math.round((bal - fromBalance) * 100) / 100;
+    if (shortfall > 0) user.dueBalance = Math.round(((user.dueBalance || 0) + shortfall) * 100) / 100;
     if (!db.walletTransactions) db.walletTransactions = [];
     db.walletTransactions.push({
       id: `wtx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       userId, type: 'debit', amountUsd: price,
-      balanceAfter: user.walletBalance, description, createdAt: new Date().toISOString()
+      balanceAfter: user.mainBalance, description, createdAt: new Date().toISOString()
     });
     this.write(db);
-    this.log('info', 'payment', `Purchase charged $${price} for ${user.email} → balance $${user.walletBalance}, due $${user.walletDue || 0}`);
-    return { balance: user.walletBalance, due: user.walletDue || 0 };
+    this.log('info', 'payment', `Purchase charged $${price} for ${user.email} → balance $${user.mainBalance}, due $${user.dueBalance || 0}`);
+    return { balance: user.mainBalance, due: user.dueBalance || 0 };
   }
 
   /** Debit the wallet if funds suffice. Returns {ok, balance}. */
@@ -365,10 +371,10 @@ class Database {
     const db = this.read();
     const user = db.users.find(u => u.id === userId);
     if (!user) return { ok: false, balance: 0 };
-    const bal = user.walletBalance || 0;
+    const bal = user.mainBalance || 0;
     if (bal + 1e-9 < amountUsd) return { ok: false, balance: bal };
     const newBalance = Math.round((bal - amountUsd) * 100) / 100;
-    user.walletBalance = newBalance;
+    user.mainBalance = newBalance;
     if (!db.walletTransactions) db.walletTransactions = [];
     db.walletTransactions.push({
       id: `wtx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -451,6 +457,71 @@ class Database {
 
   public getMobileProxies(): MobileProxy[] {
     return this.read().mobileProxies || [];
+  }
+
+  // --- HOSTED IPs ---
+
+  public getHostedIps(): HostedIP[] {
+    return this.read().hostedIps || [];
+  }
+
+  public getAvailableHostedIps(): HostedIP[] {
+    return (this.read().hostedIps || []).filter(ip => ip.status === 'available');
+  }
+
+  public getHostedIpById(id: string): HostedIP | undefined {
+    return (this.read().hostedIps || []).find(ip => ip.id === id);
+  }
+
+  public insertHostedIp(ip: HostedIP): HostedIP {
+    const db = this.read();
+    if (!db.hostedIps) db.hostedIps = [];
+    db.hostedIps.push(ip);
+    this.write(db);
+    return ip;
+  }
+
+  public updateHostedIp(id: string, updates: Partial<HostedIP>): HostedIP | null {
+    const db = this.read();
+    if (!db.hostedIps) db.hostedIps = [];
+    const idx = db.hostedIps.findIndex(ip => ip.id === id);
+    if (idx === -1) return null;
+    db.hostedIps[idx] = { ...db.hostedIps[idx], ...updates };
+    this.write(db);
+    return db.hostedIps[idx];
+  }
+
+  public deleteHostedIp(id: string): boolean {
+    const db = this.read();
+    if (!db.hostedIps) db.hostedIps = [];
+    const before = db.hostedIps.length;
+    db.hostedIps = db.hostedIps.filter(ip => ip.id !== id);
+    this.write(db);
+    return db.hostedIps.length < before;
+  }
+
+  // --- CLEAR DUE PAYMENTS ---
+
+  public getClearDuePayments(): ClearDuePayment[] {
+    return this.read().clearDuePayments || [];
+  }
+
+  public insertClearDuePayment(payment: ClearDuePayment): ClearDuePayment {
+    const db = this.read();
+    if (!db.clearDuePayments) db.clearDuePayments = [];
+    db.clearDuePayments.push(payment);
+    this.write(db);
+    return payment;
+  }
+
+  public updateClearDuePayment(id: string, updates: Partial<ClearDuePayment>): ClearDuePayment | null {
+    const db = this.read();
+    if (!db.clearDuePayments) db.clearDuePayments = [];
+    const idx = db.clearDuePayments.findIndex(p => p.id === id);
+    if (idx === -1) return null;
+    db.clearDuePayments[idx] = { ...db.clearDuePayments[idx], ...updates };
+    this.write(db);
+    return db.clearDuePayments[idx];
   }
 
   public updateTransaction(id: string, updates: Partial<PaymentTransaction>): PaymentTransaction | null {

@@ -11,8 +11,8 @@ export interface User {
   role: 'user' | 'admin';
   isActive: boolean;
   createdAt: string;
-  walletBalance?: number; // prepaid wallet balance in USD
-  walletDue?: number;     // amount owed when a purchase exceeded the balance (partial credit)
+  mainBalance: number;    // prepaid balance for purchases (USD)
+  dueBalance: number;     // amount owed / payable (USD)
 }
 
 // A customer's mobile (LTESocks) proxy — one "port" ordered on their behalf.
@@ -53,6 +53,28 @@ export interface WalletTransaction {
   balanceAfter: number;   // wallet balance after this entry
   description: string;
   createdAt: string;
+}
+
+export interface HostedIP {
+  id: string;
+  ipAddress: string;
+  status: 'available' | 'assigned' | 'inactive';
+  assignedToUserId?: string;  // user who's currently using this IP
+  assignedToOrderId?: string; // which order this IP is assigned to
+  createdAt: string;
+  assignedAt?: string;
+}
+
+export interface ClearDuePayment {
+  id: string;
+  userId: string;
+  amountUsd: number;
+  gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' | 'cryptomus';
+  status: 'completed' | 'pending' | 'failed';
+  providerTransactionId?: string;
+  providerInvoiceId?: string;
+  createdAt: string;
+  completedAt?: string;
 }
 
 export interface ProxyPackage {
