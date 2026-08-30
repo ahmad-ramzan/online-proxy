@@ -461,7 +461,7 @@ export const api = {
       return data.coupons;
     },
 
-    async createCoupon(coupon: { code: string; type: 'percent' | 'fixed'; value: number; maxUses: number }): Promise<Coupon> {
+    async createCoupon(coupon: { code: string; type: 'percent' | 'fixed'; value: number; maxUses: number; category?: 'residential' | 'mobile' | 'both' }): Promise<Coupon> {
       const res = await fetch(`${API_BASE}/api/admin/coupons`, {
         method: 'POST',
         headers: getHeaders(),

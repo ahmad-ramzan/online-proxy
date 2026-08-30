@@ -33,7 +33,7 @@ export class PaymentService {
    * Evaluates a coupon against a base USD amount. Returns the discounted total.
    * `error` is set (and no discount applied) when the coupon is invalid/expired.
    */
-  public static evaluateCoupon(baseUsd: number, code?: string): {
+  public static evaluateCoupon(baseUsd: number, code?: string, proxyType?: 'residential' | 'mobile'): {
     finalUsd: number; discountUsd: number; couponCode?: string; error?: string;
   } {
     const trimmed = (code || '').trim();
@@ -44,6 +44,13 @@ export class PaymentService {
     if (!coupon.isActive) return { finalUsd: baseUsd, discountUsd: 0, error: 'This coupon is no longer active.' };
     if (coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) {
       return { finalUsd: baseUsd, discountUsd: 0, error: 'This coupon has reached its usage limit.' };
+    }
+
+    // Check coupon category compatibility
+    if (proxyType && (coupon as any).category && (coupon as any).category !== 'both') {
+      if ((coupon as any).category !== proxyType) {
+        return { finalUsd: baseUsd, discountUsd: 0, error: `This coupon only works for ${(coupon as any).category} proxies.` };
+      }
     }
 
     let discount = coupon.type === 'percent' ? baseUsd * (coupon.value / 100) : coupon.value;
@@ -77,7 +84,7 @@ export class PaymentService {
     }
 
     // Server-authoritative pricing: base is the package price; apply the coupon here.
-    const couponEval = this.evaluateCoupon(pkg.priceUsd, params.couponCode);
+    const couponEval = this.evaluateCoupon(pkg.priceUsd, params.couponCode, 'residential');
     if (couponEval.error) {
       throw new Error(couponEval.error);
     }
@@ -448,7 +455,7 @@ export class PaymentService {
     const pkg = dbInstance.getPackages().find(p => p.id === params.packageId);
     if (!pkg) throw new Error(`Invalid pricing package selected: ${params.packageId}`);
 
-    const couponEval = this.evaluateCoupon(pkg.priceUsd, params.couponCode);
+    const couponEval = this.evaluateCoupon(pkg.priceUsd, params.couponCode, 'residential');
     if (couponEval.error) throw new Error(couponEval.error);
     const finalUsd = couponEval.finalUsd;
 

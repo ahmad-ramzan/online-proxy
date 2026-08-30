@@ -809,7 +809,7 @@ app.delete('/api/mobile/:id', authenticateToken, (req, res) => {
 
 // Validate a coupon against a package (for client-side preview). Auth required.
 app.post('/api/payment/validate-coupon', authenticateToken, (req, res) => {
-  const { code, packageId, amountUsd } = req.body;
+  const { code, packageId, amountUsd, proxyType } = req.body;
   if (!code || (!packageId && amountUsd === undefined)) {
     return res.status(400).json({ error: 'Coupon code and package are required.' });
   }
@@ -820,7 +820,7 @@ app.post('/api/payment/validate-coupon', authenticateToken, (req, res) => {
   if (!(baseUsd >= 0)) {
     return res.status(404).json({ error: 'Package not found.' });
   }
-  const result = PaymentService.evaluateCoupon(baseUsd, String(code));
+  const result = PaymentService.evaluateCoupon(baseUsd, String(code), proxyType);
   if (result.error) {
     return res.status(200).json({ valid: false, message: result.error, originalUsd: baseUsd });
   }
@@ -1350,7 +1350,7 @@ app.get('/api/admin/coupons', authenticateToken, requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/coupons', authenticateToken, requireAdmin, (req, res) => {
-  const { code, type, value, maxUses } = req.body;
+  const { code, type, value, maxUses, category } = req.body;
   const normCode = String(code || '').trim().toUpperCase();
 
   if (!normCode || !/^[A-Z0-9_-]{2,32}$/.test(normCode)) {
@@ -1367,7 +1367,7 @@ app.post('/api/admin/coupons', authenticateToken, requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'A coupon with this code already exists.' });
   }
 
-  const coupon: Coupon = {
+  const coupon: Coupon & { category?: string } = {
     id: `cpn_${Date.now()}`,
     code: normCode,
     type,
@@ -1377,7 +1377,10 @@ app.post('/api/admin/coupons', authenticateToken, requireAdmin, (req, res) => {
     usedCount: 0,
     createdAt: new Date().toISOString()
   };
-  dbInstance.insertCoupon(coupon);
+  if (category && ['residential', 'mobile', 'both'].includes(category)) {
+    (coupon as any).category = category;
+  }
+  dbInstance.insertCoupon(coupon as any);
   res.status(201).json({ coupon });
 });
 

@@ -55,6 +55,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [newCouponType, setNewCouponType] = useState<'percent' | 'fixed'>('percent');
   const [newCouponValue, setNewCouponValue] = useState<number>(10);
   const [newCouponMaxUses, setNewCouponMaxUses] = useState<number>(0);
+  const [newCouponCategory, setNewCouponCategory] = useState<'residential' | 'mobile' | 'both'>('both');
   
   // Settings edit states
   const [apiSettings, setApiSettings] = useState<any>(null);
@@ -230,11 +231,13 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         code: newCouponCode,
         type: newCouponType,
         value: newCouponValue,
-        maxUses: newCouponMaxUses
+        maxUses: newCouponMaxUses,
+        category: newCouponCategory
       });
       setNewCouponCode('');
       setNewCouponValue(10);
       setNewCouponMaxUses(0);
+      setNewCouponCategory('both');
       setCoupons(await api.admin.getCoupons());
       triggerNotify('Coupon created successfully.');
     } catch (e: any) {
@@ -843,7 +846,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               <h3 className="text-base font-black text-white flex items-center gap-2">
                 <Ticket className="w-4 h-4 text-blue-400" /> Create Coupon
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-slate-500 uppercase block">Code</label>
                   <input
@@ -876,6 +879,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     onChange={(e) => setNewCouponValue(parseFloat(e.target.value) || 0)}
                     className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Category</label>
+                  <select
+                    value={newCouponCategory}
+                    onChange={(e) => setNewCouponCategory(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-850 rounded-lg px-3 py-2 text-xs text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="both">Both</option>
+                    <option value="residential">Residential Only</option>
+                    <option value="mobile">Mobile Only</option>
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-slate-500 uppercase block">Max uses (0 = ∞)</label>
