@@ -426,22 +426,18 @@ export class PaymentService {
 
   /** Provision a paid mobile proxy: order the LTESocks port + save the record. */
   private static async provisionMobileForTxn(txn: PaymentTransaction): Promise<void> {
-    if (!txn.mobilePlanId || txn.mobileTarificationIndex === undefined) return;
-    const plans = await LTESocksService.getPlans();
-    const plan = plans.find(p => p.id === txn.mobilePlanId);
-    if (!plan) { dbInstance.log('error', 'proxy', `Mobile provision: plan ${txn.mobilePlanId} not found for txn ${txn.id}`); return; }
-    const trf = plan.tarifications[txn.mobileTarificationIndex];
-    if (!trf) return;
-    const ordered = await LTESocksService.orderPort(plan.id, { time: trf.time, traffic: trf.trafficMb, price: trf.priceRaw });
-    dbInstance.insertMobileProxy({
-      id: `mob_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      userId: txn.userId, portId: ordered.portId, planId: plan.id, planName: plan.name,
-      countryCode: plan.countryCode, ip: ordered.ip, port: ordered.port,
-      username: ordered.username, password: ordered.password, protocol: 'socks5',
-      status: ordered.status, resetToken: ordered.resetToken, priceUsd: trf.priceUsd,
-      createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + trf.time * 1000).toISOString()
+    if (!txn.mobilePlanId) return;
+    // Create pending order; admin will assign proxy from inventory later
+    dbInstance.insertMobileProxyOrder({
+      id: `mo_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId: txn.userId,
+      planName: txn.mobilePlanId,
+      countryCode: '',  // will be updated when admin assigns
+      priceUsd: txn.amountUsd,
+      status: 'pending',
+      createdAt: new Date().toISOString()
     });
-    dbInstance.log('info', 'proxy', `Mobile proxy provisioned after payment: ${plan.name} for user ${txn.userId} (port ${ordered.portId}).`);
+    dbInstance.log('info', 'proxy', `Mobile proxy order created (pending) after gateway payment: ${txn.mobilePlanId} for user ${txn.userId}`);
   }
 
   /**

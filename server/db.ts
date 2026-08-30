@@ -8,7 +8,7 @@ import path from 'path';
 import {
   User, ProxyPackage, ProxyOrder, CreatedProxy,
   PaymentTransaction, SystemLog, CountryConfig,
-  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy
+  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder
 } from '../src/types';
 
 // JSON file "database". On a VPS this persists on disk across restarts.
@@ -32,6 +32,7 @@ interface DatabaseSchema {
   supportTickets: SupportTicket[];
   walletTransactions: WalletTransaction[];
   mobileProxies: MobileProxy[];
+  mobileProxyOrders: MobileProxyOrder[];
 }
 
 const DEFAULT_DB: DatabaseSchema = {
@@ -70,6 +71,7 @@ const DEFAULT_DB: DatabaseSchema = {
   supportTickets: [],
   walletTransactions: [],
   mobileProxies: [],
+  mobileProxyOrders: [],
   logs: [
     {
       id: 'log_1',
@@ -415,6 +417,36 @@ class Database {
     db.mobileProxies = db.mobileProxies.filter(m => m.id !== id);
     this.write(db);
     return db.mobileProxies.length < before;
+  }
+
+  public getMobileProxyOrderById(id: string): MobileProxyOrder | undefined {
+    return (this.read().mobileProxyOrders || []).find(o => o.id === id);
+  }
+
+  public getPendingMobileProxyOrders(): MobileProxyOrder[] {
+    return (this.read().mobileProxyOrders || []).filter(o => o.status === 'pending');
+  }
+
+  public insertMobileProxyOrder(order: MobileProxyOrder): MobileProxyOrder {
+    const db = this.read();
+    if (!db.mobileProxyOrders) db.mobileProxyOrders = [];
+    db.mobileProxyOrders.push(order);
+    this.write(db);
+    return order;
+  }
+
+  public updateMobileProxyOrder(id: string, updates: Partial<MobileProxyOrder>): MobileProxyOrder | null {
+    const db = this.read();
+    if (!db.mobileProxyOrders) db.mobileProxyOrders = [];
+    const idx = db.mobileProxyOrders.findIndex(o => o.id === id);
+    if (idx === -1) return null;
+    db.mobileProxyOrders[idx] = { ...db.mobileProxyOrders[idx], ...updates };
+    this.write(db);
+    return db.mobileProxyOrders[idx];
+  }
+
+  public getAvailableMobileProxies(): MobileProxy[] {
+    return (this.read().mobileProxies || []).filter(m => m.status === 'available');
   }
 
   public updateTransaction(id: string, updates: Partial<PaymentTransaction>): PaymentTransaction | null {

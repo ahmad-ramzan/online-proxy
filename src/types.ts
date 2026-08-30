@@ -18,21 +18,30 @@ export interface User {
 // A customer's mobile (LTESocks) proxy — one "port" ordered on their behalf.
 export interface MobileProxy {
   id: string;
-  userId: string;
-  portId: string;         // LTESocks port id
-  planId: string;
-  planName: string;
-  countryCode: string;
-  ip: string;             // gateway ip
-  port: string;           // gateway port
+  userId?: string;         // user who owns this proxy (empty = available in pool)
+  ip: string;
+  port: string;
   username: string;
   password: string;
   protocol: 'socks5' | 'http';
-  status: string;         // LTESocks status (active/expired…)
-  resetToken?: string;    // rotate IP via this token
+  planName: string;        // which plan this proxy is for
+  countryCode: string;
   priceUsd: number;
+  status: 'active' | 'expired' | 'available';  // available = in pool, active = assigned to user
   createdAt: string;
-  expiresAt: string;
+  expiresAt?: string;      // when proxy expires
+}
+
+export interface MobileProxyOrder {
+  id: string;
+  userId: string;
+  planName: string;
+  countryCode: string;
+  priceUsd: number;
+  status: 'pending' | 'assigned' | 'cancelled';  // pending = awaiting admin assignment
+  createdAt: string;
+  assignedAt?: string;
+  mobileProxyId?: string;  // reference to MobileProxy once assigned
 }
 
 // One line in a user's wallet ledger (top-up credit or purchase debit).

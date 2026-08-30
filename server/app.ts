@@ -741,55 +741,27 @@ app.get('/api/mobile/my', authenticateToken, (req, res) => {
 });
 
 // Order a mobile proxy, paying from the wallet balance.
+// Customer orders mobile proxy via wallet; admin assigns from inventory later
 app.post('/api/mobile/order', authenticateToken, async (req, res) => {
-  const { planId, tarificationIndex } = req.body;
-  if (!planId || tarificationIndex === undefined) {
-    return res.status(400).json({ error: 'planId and tarificationIndex are required.' });
-  }
-  if (!LTESocksService.isConfigured()) {
-    return res.status(400).json({ error: 'Mobile proxies are not available right now.' });
+  const { planId, planName, countryCode, priceUsd } = req.body;
+  if (!planId || !planName || !countryCode || priceUsd === undefined) {
+    return res.status(400).json({ error: 'planId, planName, countryCode, priceUsd are required.' });
   }
   try {
-    const plans = await LTESocksService.getPlans();
-    const plan = plans.find(p => p.id === planId);
-    if (!plan) return res.status(404).json({ error: 'Plan not found.' });
-    const trf = plan.tarifications[Number(tarificationIndex)];
-    if (!trf) return res.status(400).json({ error: 'Invalid duration selected.' });
-
-    // Charge the wallet first; refund if the upstream order fails.
-    const debit = dbInstance.debitWallet(req.user!.id, trf.priceUsd, `Mobile proxy: ${plan.name}`);
+    const debit = dbInstance.debitWallet(req.user!.id, priceUsd, `Mobile proxy: ${planName}`);
     if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
 
-    let ordered;
-    try {
-      ordered = await LTESocksService.orderPort(planId, { time: trf.time, traffic: trf.trafficMb, price: trf.priceRaw });
-    } catch (e: any) {
-      dbInstance.creditWallet(req.user!.id, trf.priceUsd, `Refund — mobile proxy order failed`);
-      return res.status(502).json({ error: `Could not create the mobile proxy (${e.message}). Your wallet was refunded.` });
-    }
-
-    const s = dbInstance.getPaymentSettings();
-    const proto = (s as any)?.mobileProtocol || 'socks5';
-    const mp = dbInstance.insertMobileProxy({
-      id: `mob_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    const order = dbInstance.insertMobileProxyOrder({
+      id: `mo_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       userId: req.user!.id,
-      portId: ordered.portId,
-      planId: plan.id,
-      planName: plan.name,
-      countryCode: plan.countryCode,
-      ip: ordered.ip,
-      port: ordered.port,
-      username: ordered.username,
-      password: ordered.password,
-      protocol: proto === 'http' ? 'http' : 'socks5',
-      status: ordered.status,
-      resetToken: ordered.resetToken,
-      priceUsd: trf.priceUsd,
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + trf.time * 1000).toISOString()
+      planName,
+      countryCode,
+      priceUsd,
+      status: 'pending',
+      createdAt: new Date().toISOString()
     });
-    dbInstance.log('info', 'proxy', `Mobile proxy ordered: ${plan.name} for user ${req.user!.id} (port ${ordered.portId}).`);
-    res.json({ proxy: mp });
+    dbInstance.log('info', 'proxy', `Mobile proxy order created (pending): ${planName} for user ${req.user!.id}`);
+    res.json({ order });
   } catch (e: any) {
     console.error('[/api/mobile/order] Error:', e.message || e);
     dbInstance.log('error', 'proxy', `Mobile order error: ${e.message}`);
@@ -821,29 +793,13 @@ app.post('/api/mobile/checkout', authenticateToken, async (req, res) => {
   }
 });
 
-// Rotate the mobile IP.
-app.post('/api/mobile/:id/reset', authenticateToken, async (req, res) => {
+// Release a mobile proxy (remove from user's list)
+app.delete('/api/mobile/:id', authenticateToken, (req, res) => {
   const mp = dbInstance.getMobileProxyById(req.params.id);
   if (!mp || mp.userId !== req.user!.id) return res.status(404).json({ error: 'Mobile proxy not found.' });
-  try {
-    await LTESocksService.resetPort(mp.portId);
-    // Refresh connection details after the rotation.
-    try {
-      const fresh = await LTESocksService.getPort(mp.portId);
-      dbInstance.updateMobileProxy(mp.id, { ip: fresh.ip, port: fresh.port, status: fresh.status });
-    } catch { /* non-fatal */ }
-    res.json({ success: true });
-  } catch (e: any) {
-    res.status(502).json({ error: e.message || 'Could not rotate the mobile IP.' });
-  }
-});
-
-// Release a mobile proxy.
-app.delete('/api/mobile/:id', authenticateToken, async (req, res) => {
-  const mp = dbInstance.getMobileProxyById(req.params.id);
-  if (!mp || mp.userId !== req.user!.id) return res.status(404).json({ error: 'Mobile proxy not found.' });
-  try { await LTESocksService.deletePort(mp.portId); } catch { /* proceed to remove locally */ }
-  dbInstance.deleteMobileProxy(mp.id);
+  // Return to available pool (for admin to reassign)
+  dbInstance.updateMobileProxy(mp.id, { userId: '', status: 'available' });
+  dbInstance.log('info', 'proxy', `User ${req.user!.id} released mobile proxy ${mp.id}.`);
   res.json({ success: true });
 });
 
@@ -1028,6 +984,59 @@ app.get('/api/admin/ltesocks-account', authenticateToken, requireAdmin, async (r
     res.json(info);
   } catch (e: any) {
     res.status(502).json({ error: e.message || 'Could not reach LTeSocks.' });
+  }
+});
+
+// List pending mobile proxy orders + available proxies for admin
+app.get('/api/admin/mobile-orders', authenticateToken, requireAdmin, (req, res) => {
+  const orders = dbInstance.getPendingMobileProxyOrders();
+  const availableProxies = dbInstance.getAvailableMobileProxies();
+  const users = dbInstance.getUsers();
+
+  const ordersWithUser = orders.map(o => {
+    const user = users.find(u => u.id === o.userId);
+    return { ...o, userName: user?.name || 'Unknown', userEmail: user?.email || '' };
+  });
+
+  res.json({ orders: ordersWithUser, availableProxies });
+});
+
+// Admin assigns a proxy from inventory to a pending order
+app.post('/api/admin/mobile-orders/:orderId/assign', authenticateToken, requireAdmin, (req, res) => {
+  const { orderId } = req.params;
+  const { mobileProxyId } = req.body;
+
+  if (!mobileProxyId) {
+    return res.status(400).json({ error: 'mobileProxyId is required.' });
+  }
+
+  const order = dbInstance.getMobileProxyOrderById(orderId);
+  if (!order) return res.status(404).json({ error: 'Order not found.' });
+  if (order.status !== 'pending') return res.status(400).json({ error: 'Order is not pending.' });
+
+  const proxy = dbInstance.getMobileProxyById(mobileProxyId);
+  if (!proxy) return res.status(404).json({ error: 'Proxy not found.' });
+  if (proxy.status !== 'available') return res.status(400).json({ error: 'Proxy is not available.' });
+
+  try {
+    // Update proxy: assign to user, change status to active
+    dbInstance.updateMobileProxy(mobileProxyId, {
+      userId: order.userId,
+      status: 'active'
+    });
+
+    // Update order: mark as assigned, link proxy
+    dbInstance.updateMobileProxyOrder(orderId, {
+      status: 'assigned',
+      mobileProxyId,
+      assignedAt: new Date().toISOString()
+    });
+
+    dbInstance.log('info', 'proxy', `Mobile proxy ${mobileProxyId} assigned to order ${orderId} (user ${order.userId}).`);
+    res.json({ success: true, proxy });
+  } catch (e: any) {
+    console.error('[/api/admin/mobile-orders/:orderId/assign] Error:', e.message || e);
+    res.status(500).json({ error: e.message || 'Failed to assign proxy.' });
   }
 });
 
