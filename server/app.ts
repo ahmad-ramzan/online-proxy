@@ -1055,7 +1055,7 @@ app.get('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res)
 
 // Admin adds a proxy to the inventory pool
 app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res) => {
-  const { ip, port, username, password, planName, countryCode, priceUsd } = req.body;
+  const { ip, port, username, password, planName, countryCode, priceUsd, operator, poolSize, maxSpeedMbps, ipChangeDelaySec, rotationMinutes } = req.body;
 
   if (!ip || !port || !username || !password) {
     return res.status(400).json({ error: 'ip, port, username, password are required.' });
@@ -1073,7 +1073,12 @@ app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res
       priceUsd: priceUsd || 0,
       protocol: 'socks5',
       status: 'available',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      operator: operator || undefined,
+      poolSize: poolSize || undefined,
+      maxSpeedMbps: maxSpeedMbps !== undefined ? parseFloat(maxSpeedMbps) : undefined,
+      ipChangeDelaySec: ipChangeDelaySec !== undefined ? parseFloat(ipChangeDelaySec) : undefined,
+      rotationMinutes: rotationMinutes !== undefined ? parseFloat(rotationMinutes) : undefined
     });
     dbInstance.log('info', 'proxy', `Admin added proxy to inventory: ${ip}:${port}`);
     res.json({ proxy });
@@ -1086,7 +1091,7 @@ app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res
 // Admin updates proxy status (enable/disable)
 app.put('/api/admin/mobile-proxies/:proxyId', authenticateToken, requireAdmin, (req, res) => {
   const { proxyId } = req.params;
-  const { status, ip, port, username, password, planName, countryCode, priceUsd } = req.body;
+  const { status, ip, port, username, password, planName, countryCode, priceUsd, operator, poolSize, maxSpeedMbps, ipChangeDelaySec, rotationMinutes } = req.body;
   const proxy = dbInstance.getMobileProxyById(proxyId);
 
   if (!proxy) {
@@ -1106,6 +1111,11 @@ app.put('/api/admin/mobile-proxies/:proxyId', authenticateToken, requireAdmin, (
   if (planName !== undefined) updates.planName = String(planName);
   if (countryCode !== undefined) updates.countryCode = String(countryCode);
   if (priceUsd !== undefined) updates.priceUsd = parseFloat(priceUsd) || 0;
+  if (operator !== undefined) updates.operator = String(operator);
+  if (poolSize !== undefined) updates.poolSize = String(poolSize);
+  if (maxSpeedMbps !== undefined) updates.maxSpeedMbps = parseFloat(maxSpeedMbps) || 0;
+  if (ipChangeDelaySec !== undefined) updates.ipChangeDelaySec = parseFloat(ipChangeDelaySec) || 0;
+  if (rotationMinutes !== undefined) updates.rotationMinutes = parseFloat(rotationMinutes) || 0;
 
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ error: 'No fields to update.' });

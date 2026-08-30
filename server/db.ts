@@ -8,7 +8,7 @@ import path from 'path';
 import {
   User, ProxyPackage, ProxyOrder, CreatedProxy,
   PaymentTransaction, SystemLog, CountryConfig,
-  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder, HostedIP, ClearDuePayment
+  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder, MobilePlanGroup, HostedIP, ClearDuePayment
 } from '../src/types';
 
 // JSON file "database". On a VPS this persists on disk across restarts.
@@ -481,14 +481,18 @@ class Database {
   }
 
   /** Groups the available mobile-proxy pool into buyable "plans" (planName + countryCode). */
-  public getMobilePlanGroups(): { planName: string; countryCode: string; priceUsd: number; availableCount: number }[] {
+  public getMobilePlanGroups(): MobilePlanGroup[] {
     const available = this.getAvailableMobileProxies();
-    const groups = new Map<string, { planName: string; countryCode: string; priceUsd: number; availableCount: number }>();
+    const groups = new Map<string, MobilePlanGroup>();
     for (const p of available) {
       const key = `${p.planName}::${p.countryCode}`;
       const g = groups.get(key);
       if (g) g.availableCount++;
-      else groups.set(key, { planName: p.planName, countryCode: p.countryCode, priceUsd: p.priceUsd, availableCount: 1 });
+      else groups.set(key, {
+        planName: p.planName, countryCode: p.countryCode, priceUsd: p.priceUsd, availableCount: 1,
+        operator: p.operator, poolSize: p.poolSize, maxSpeedMbps: p.maxSpeedMbps,
+        ipChangeDelaySec: p.ipChangeDelaySec, rotationMinutes: p.rotationMinutes
+      });
     }
     return Array.from(groups.values());
   }

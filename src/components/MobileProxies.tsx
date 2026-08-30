@@ -13,6 +13,11 @@ interface MobilePlanGroup {
   countryCode: string;
   priceUsd: number;
   availableCount: number;
+  operator?: string;
+  poolSize?: string;
+  maxSpeedMbps?: number;
+  ipChangeDelaySec?: number;
+  rotationMinutes?: number;
 }
 
 interface MobileProxiesProps {
@@ -25,6 +30,14 @@ interface MobileProxiesProps {
 const flagEmoji = (code: string) => {
   if (!code || code.length !== 2) return '🌐';
   return String.fromCodePoint(...[...code.toUpperCase()].map(c => 127397 + c.charCodeAt(0)));
+};
+
+const countryDisplayNames = typeof Intl !== 'undefined' && (Intl as any).DisplayNames
+  ? new (Intl as any).DisplayNames(['en'], { type: 'region' })
+  : null;
+const countryName = (code: string) => {
+  if (!code) return '—';
+  try { return countryDisplayNames?.of(code.toUpperCase()) || code; } catch { return code; }
 };
 
 export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: MobileProxiesProps) {
@@ -140,9 +153,15 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
                   </div>
                   <div className="flex justify-between gap-4 text-[11px]">
                     <div className="space-y-1.5">
-                      <div><span className="text-slate-500">Country:</span> <span className="text-slate-200 font-semibold">{plan.countryCode}</span></div>
+                      <div><span className="text-slate-500">Country:</span> <span className="text-slate-200 font-semibold">{countryName(plan.countryCode)}</span></div>
+                      {plan.operator && <div><span className="text-slate-500">Operator:</span> <span className="text-slate-200 font-semibold">{plan.operator}</span></div>}
+                      <div><span className="text-slate-500">Type:</span> <span className="text-slate-200 font-semibold">Private</span></div>
                     </div>
                     <div className="space-y-1.5 text-right">
+                      {plan.poolSize && <div><span className="text-slate-500">IP Pool Size:</span> <span className="text-slate-200 font-semibold">{plan.poolSize}</span></div>}
+                      {!!plan.maxSpeedMbps && <div><span className="text-slate-500">Max Speed:</span> <span className="text-slate-200 font-semibold">{plan.maxSpeedMbps} mbit/s</span></div>}
+                      {plan.ipChangeDelaySec !== undefined && <div><span className="text-slate-500">IP Change Delay:</span> <span className="text-slate-200 font-semibold">{plan.ipChangeDelaySec}s</span></div>}
+                      {!!plan.rotationMinutes && <div><span className="text-slate-500">IP Rotation:</span> <span className="text-slate-200 font-semibold">{plan.rotationMinutes} min</span></div>}
                       <div className="flex items-center justify-end gap-1.5">
                         <span className="text-slate-500">Stock:</span>
                         <span className={`w-2 h-2 rounded-full ${inStock ? 'bg-green-500' : 'bg-red-500'}`}></span>

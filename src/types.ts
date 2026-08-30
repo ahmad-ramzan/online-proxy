@@ -30,6 +30,26 @@ export interface MobileProxy {
   status: 'active' | 'expired' | 'available';  // available = in pool, active = assigned to user
   createdAt: string;
   expiresAt?: string;      // when proxy expires
+  // Display-only specs shown on the customer's plan card (admin-set, since
+  // there's no live provider API to read these from).
+  operator?: string;       // e.g. "T-Mobile"
+  poolSize?: string;       // e.g. "20K+"
+  maxSpeedMbps?: number;   // e.g. 115
+  ipChangeDelaySec?: number; // e.g. 0
+  rotationMinutes?: number;  // e.g. 30
+}
+
+// A buyable "plan" — the available pool grouped by planName + countryCode.
+export interface MobilePlanGroup {
+  planName: string;
+  countryCode: string;
+  priceUsd: number;
+  availableCount: number;
+  operator?: string;
+  poolSize?: string;
+  maxSpeedMbps?: number;
+  ipChangeDelaySec?: number;
+  rotationMinutes?: number;
 }
 
 export interface MobileProxyOrder {

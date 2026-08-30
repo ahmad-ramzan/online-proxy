@@ -21,7 +21,12 @@ export default function AdminMobileProxyList() {
     password: '',
     planName: '',
     countryCode: '',
-    priceUsd: 0
+    priceUsd: 0,
+    operator: '',
+    poolSize: '',
+    maxSpeedMbps: 0,
+    ipChangeDelaySec: 0,
+    rotationMinutes: 0
   });
   const [quickPaste, setQuickPaste] = useState('');
   const [quickPasteError, setQuickPasteError] = useState('');
@@ -59,7 +64,7 @@ export default function AdminMobileProxyList() {
   };
 
   const resetForm = () => {
-    setFormData({ ip: '', port: '', username: '', password: '', planName: '', countryCode: '', priceUsd: 0 });
+    setFormData({ ip: '', port: '', username: '', password: '', planName: '', countryCode: '', priceUsd: 0, operator: '', poolSize: '', maxSpeedMbps: 0, ipChangeDelaySec: 0, rotationMinutes: 0 });
     setQuickPaste('');
     setQuickPasteError('');
     setEditingId(null);
@@ -72,30 +77,29 @@ export default function AdminMobileProxyList() {
       return;
     }
 
+    const payload = {
+      ip: formData.ip,
+      port: formData.port,
+      username: formData.username,
+      password: formData.password,
+      planName: formData.planName || 'Standard',
+      countryCode: formData.countryCode || 'US',
+      priceUsd: parseFloat(formData.priceUsd.toString()) || 5,
+      operator: formData.operator || undefined,
+      poolSize: formData.poolSize || undefined,
+      maxSpeedMbps: formData.maxSpeedMbps || undefined,
+      ipChangeDelaySec: formData.ipChangeDelaySec || undefined,
+      rotationMinutes: formData.rotationMinutes || undefined
+    };
+
     try {
       if (editingId) {
-        await api.admin.updateMobileProxy(editingId, {
-          ip: formData.ip,
-          port: formData.port,
-          username: formData.username,
-          password: formData.password,
-          planName: formData.planName || 'Standard',
-          countryCode: formData.countryCode || 'US',
-          priceUsd: parseFloat(formData.priceUsd.toString()) || 5
-        });
+        await api.admin.updateMobileProxy(editingId, payload);
         resetForm();
         await loadProxies();
         alert('Proxy updated successfully');
       } else {
-        await api.admin.addMobileProxy({
-          ip: formData.ip,
-          port: formData.port,
-          username: formData.username,
-          password: formData.password,
-          planName: formData.planName || 'Standard',
-          countryCode: formData.countryCode || 'US',
-          priceUsd: parseFloat(formData.priceUsd.toString()) || 5
-        });
+        await api.admin.addMobileProxy(payload);
         resetForm();
         await loadProxies();
         alert('Proxy added successfully');
@@ -114,7 +118,12 @@ export default function AdminMobileProxyList() {
       password: proxy.password,
       planName: proxy.planName,
       countryCode: proxy.countryCode,
-      priceUsd: proxy.priceUsd
+      priceUsd: proxy.priceUsd,
+      operator: proxy.operator || '',
+      poolSize: proxy.poolSize || '',
+      maxSpeedMbps: proxy.maxSpeedMbps || 0,
+      ipChangeDelaySec: proxy.ipChangeDelaySec || 0,
+      rotationMinutes: proxy.rotationMinutes || 0
     });
     setQuickPaste('');
     setQuickPasteError('');
@@ -226,6 +235,45 @@ export default function AdminMobileProxyList() {
               placeholder="Price (USD)"
               value={formData.priceUsd}
               onChange={(e) => setFormData({ ...formData, priceUsd: parseFloat(e.target.value) })}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+            />
+          </div>
+
+          <p className="text-[10px] font-bold text-slate-500 uppercase pt-2">Display specs (shown on the customer's plan card)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Operator (e.g., T-Mobile)"
+              value={formData.operator}
+              onChange={(e) => setFormData({ ...formData, operator: e.target.value })}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+            />
+            <input
+              type="text"
+              placeholder="IP Pool Size (e.g., 20K+)"
+              value={formData.poolSize}
+              onChange={(e) => setFormData({ ...formData, poolSize: e.target.value })}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+            />
+            <input
+              type="number"
+              placeholder="Max Speed (mbit/s)"
+              value={formData.maxSpeedMbps || ''}
+              onChange={(e) => setFormData({ ...formData, maxSpeedMbps: parseFloat(e.target.value) || 0 })}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+            />
+            <input
+              type="number"
+              placeholder="IP Change Delay (sec)"
+              value={formData.ipChangeDelaySec || ''}
+              onChange={(e) => setFormData({ ...formData, ipChangeDelaySec: parseFloat(e.target.value) || 0 })}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+            />
+            <input
+              type="number"
+              placeholder="IP Rotation (minutes)"
+              value={formData.rotationMinutes || ''}
+              onChange={(e) => setFormData({ ...formData, rotationMinutes: parseFloat(e.target.value) || 0 })}
               className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
             />
           </div>
