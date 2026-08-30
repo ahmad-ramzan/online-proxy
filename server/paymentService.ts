@@ -600,6 +600,31 @@ export class PaymentService {
       return true;
     }
 
+    // Clear due balance payment
+    if (txn.purpose === 'clear-due') {
+      db.updateTransaction(txn.id, { status: 'completed' });
+      const user = db.getUsers().find(u => u.id === txn.userId);
+      if (user && user.dueBalance > 0) {
+        // Clear the due balance
+        const cleared = Math.min(user.dueBalance, txn.amountUsd);
+        db.updateUser(txn.userId, { dueBalance: Math.max(0, user.dueBalance - cleared) });
+        // Record the clear-due payment
+        db.insertClearDuePayment({
+          id: `cdp_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          userId: txn.userId,
+          amountUsd: txn.amountUsd,
+          gateway: txn.gateway,
+          status: 'completed',
+          providerTransactionId: txn.providerTxnId,
+          providerInvoiceId: txn.providerInvoiceId,
+          createdAt: new Date().toISOString(),
+          completedAt: new Date().toISOString()
+        });
+        db.log('info', 'payment', `Due balance cleared: $${cleared} for user ${txn.userId} via ${txn.gateway}`);
+      }
+      return true;
+    }
+
     // Mobile proxy purchase: provision the LTESocks port after payment.
     if (txn.purpose === 'mobile') {
       db.updateTransaction(txn.id, { status: 'completed' });

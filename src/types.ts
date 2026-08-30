@@ -168,8 +168,8 @@ export interface PaymentTransaction {
   couponCode?: string;
   discountUsd?: number;
   // 'wallet' = a wallet top-up (credits balance, no order); 'mobile' = a mobile
-  // (LTESocks) proxy bought via a gateway; default 'order'.
-  purpose?: 'order' | 'wallet' | 'mobile';
+  // (LTESocks) proxy bought via a gateway; 'clear-due' = clearing due balance; default 'order'.
+  purpose?: 'order' | 'wallet' | 'mobile' | 'clear-due';
   mobilePlanId?: string;
   mobileTarificationIndex?: number;
 }

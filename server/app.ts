@@ -972,6 +972,54 @@ app.get('/api/payment/transactions', authenticateToken, (req, res) => {
   res.json({ transactions: userTxns });
 });
 
+// --- CLEAR DUE BALANCE PAYMENT ---
+
+// Get user's current due balance
+app.get('/api/payment/due-balance', authenticateToken, (req, res) => {
+  const user = dbInstance.getUsers().find(u => u.id === req.user!.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  res.json({ dueBalance: user.dueBalance, mainBalance: user.mainBalance });
+});
+
+// Initiate clear-due payment via gateway
+app.post('/api/payment/clear-due-checkout', authenticateToken, async (req, res) => {
+  const { gateway, custPhone } = req.body;
+  const user = dbInstance.getUsers().find(u => u.id === req.user!.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  if (user.dueBalance <= 0) return res.status(400).json({ error: 'No due balance to clear.' });
+  if (!gateway) return res.status(400).json({ error: 'Payment gateway is required.' });
+
+  try {
+    const session = await PaymentService.createCheckoutSession({
+      userId: req.user!.id,
+      userEmail: user.email,
+      packageId: '', // N/A for due payment
+      amountUsd: user.dueBalance,
+      gateway: gateway as any,
+      appUrl: process.env.APP_URL,
+      custPhone
+    });
+
+    // Create a special transaction for due payment
+    const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    dbInstance.insertTransaction({
+      id: txnId,
+      userId: req.user!.id,
+      userEmail: user.email,
+      orderId: `due_${txnId}`,
+      amountUsd: user.dueBalance,
+      gateway: gateway as any,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      purpose: 'clear-due'
+    });
+
+    res.json({ checkoutUrl: session.checkoutUrl, transactionId: txnId });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message || 'Failed to create checkout session.' });
+  }
+});
+
 
 // 5. ADMIN CONTROL PANEL (Requires Admin role)
 const requireAdmin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
