@@ -150,6 +150,7 @@ class Database {
 
   constructor() {
     this.init();
+    this.migrateLegacyBalanceFields();
   }
 
   private init() {
@@ -162,6 +163,35 @@ class Database {
       }
     } catch (e) {
       console.error('Failed to initialize database file: ', e);
+    }
+  }
+
+  /**
+   * One-time upgrade: older db.json files store balances as
+   * walletBalance/walletDue on each user. The app now reads
+   * mainBalance/dueBalance instead. Copy the legacy values over (once) so
+   * existing users don't appear to have $0 after an upgrade.
+   */
+  private migrateLegacyBalanceFields() {
+    const db = this.read();
+    let changed = false;
+    db.users = db.users.map(u => {
+      const anyU = u as any;
+      if (anyU.mainBalance === undefined && anyU.walletBalance !== undefined) {
+        anyU.mainBalance = anyU.walletBalance;
+        changed = true;
+      }
+      if (anyU.dueBalance === undefined && anyU.walletDue !== undefined) {
+        anyU.dueBalance = anyU.walletDue;
+        changed = true;
+      }
+      if (anyU.mainBalance === undefined) { anyU.mainBalance = 0; changed = true; }
+      if (anyU.dueBalance === undefined) { anyU.dueBalance = 0; changed = true; }
+      return anyU;
+    });
+    if (changed) {
+      this.write(db);
+      this.log('info', 'system', 'Migrated legacy walletBalance/walletDue fields to mainBalance/dueBalance.');
     }
   }
 
