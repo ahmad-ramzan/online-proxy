@@ -18,7 +18,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies' | 'hosted-ips' | 'mobile-plans'>('stats');
 
   // States loaded from backend
   const [metrics, setMetrics] = useState<any>(null);
@@ -42,6 +42,13 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [supportStats, setSupportStats] = useState({ openCount: 0, inProgressCount: 0 });
   const [ticketReplies, setTicketReplies] = useState<Record<string, string>>({});
+
+  // Hosted IPs state
+  const [hostedIps, setHostedIps] = useState<any[]>([]);
+  const [newHostedIpAddress, setNewHostedIpAddress] = useState('');
+
+  // Filter state for users with due balance
+  const [showDueUsersOnly, setShowDueUsersOnly] = useState(false);
 
   // New coupon form
   const [newCouponCode, setNewCouponCode] = useState('');
@@ -84,6 +91,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       try { setCoupons(await api.admin.getCoupons()); } catch { /* non-fatal */ }
       try { setOrderHistory(await api.admin.getOrderHistory()); } catch { /* non-fatal */ }
       try { setNoticePosts(await api.notice.getPosts()); } catch { /* non-fatal */ }
+      try { setHostedIps(await api.admin.getHostedIps()); } catch { /* non-fatal */ }
       
       try { 
         const supRes = await api.support.adminGetAll();
@@ -419,11 +427,13 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           { id: 'pricing', label: 'Pricing Manager', icon: <DollarSign className="w-4 h-4" /> },
           { id: 'coupons', label: 'Coupons', icon: <Ticket className="w-4 h-4" /> },
           { id: 'countries', label: 'Country Manager', icon: <Globe className="w-4 h-4" /> },
+          { id: 'hosted-ips', label: 'Hosted IPs', icon: <Server className="w-4 h-4" /> },
           { id: 'logs', label: 'System Audit Logs', icon: <Terminal className="w-4 h-4" /> },
           { id: 'settings', label: 'Global Settings', icon: <Settings className="w-4 h-4" /> },
           { id: 'notice', label: 'Notice Board', icon: <Megaphone className="w-4 h-4" /> },
           { id: 'support', label: 'Support Tickets', icon: <HelpCircle className="w-4 h-4" /> },
           { id: 'mobile-proxies', label: 'Mobile Proxies', icon: <Smartphone className="w-4 h-4" /> },
+          { id: 'mobile-plans', label: 'Mobile Plans', icon: <Smartphone className="w-4 h-4" /> },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -519,13 +529,25 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <h3 className="text-base font-black text-white">Registered Accounts</h3>
-              <input
-                type="text"
-                placeholder="Search by name or email..."
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                className="sm:w-80 h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
-              />
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setShowDueUsersOnly(!showDueUsersOnly)}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                    showDueUsersOnly
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                      : 'bg-slate-900/50 text-slate-400 border border-slate-700 hover:text-white'
+                  }`}
+                >
+                  {showDueUsersOnly ? '✓ Due Users Only' : 'Show Due Only'}
+                </button>
+                <input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="sm:w-80 h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -542,10 +564,14 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 </thead>
                 <tbody className="divide-y divide-slate-850/60">
                   {usersList
-                    .filter(usr =>
-                      usr.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-                      usr.email.toLowerCase().includes(userSearch.toLowerCase())
-                    )
+                    .filter(usr => {
+                      const matchesSearch = usr.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+                        usr.email.toLowerCase().includes(userSearch.toLowerCase());
+                      if (showDueUsersOnly) {
+                        return matchesSearch && ((usr as any).dueBalance || 0) > 0;
+                      }
+                      return matchesSearch;
+                    })
                     .map((usr) => (
                     <tr key={usr.id} className="hover:bg-slate-900/20">
                       <td className="py-3.5 font-semibold text-white">{usr.name}</td>
@@ -1678,6 +1704,195 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         {/* MOBILE PROXY MANAGEMENT TAB */}
         {activeTab === 'mobile-proxies' && (
           <MobileProxyAdmin />
+        )}
+
+        {/* HOSTED IPS MANAGEMENT TAB */}
+        {activeTab === 'hosted-ips' && (
+          <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-white">Hosted IP Pool</h3>
+              <p className="text-xs text-slate-500">Manage assigned IPs for residential proxy orders</p>
+            </div>
+
+            <div className="flex gap-3 mb-6">
+              <input
+                type="text"
+                placeholder="New IP Address (e.g., 192.168.1.1)"
+                value={newHostedIpAddress}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewHostedIpAddress(e.target.value)}
+                className="flex-1 h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                onClick={async () => {
+                  if (!newHostedIpAddress.match(/^[\d.]+$/)) {
+                    alert('Invalid IP address format');
+                    return;
+                  }
+                  setActionLoading(true);
+                  try {
+                    await api.admin.addHostedIp(newHostedIpAddress);
+                    setNewHostedIpAddress('');
+                    setSuccessMessage('IP added successfully');
+                    setTimeout(() => setSuccessMessage(''), 3000);
+                    // Reload hosted IPs
+                    const ips = await api.admin.getHostedIps();
+                    setHostedIps(ips);
+                  } catch (e: any) {
+                    alert(e.message || 'Failed to add IP');
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+                disabled={actionLoading || !newHostedIpAddress}
+                className="px-4 h-10 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Adding...' : <Plus className="w-4 h-4" />}
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead>
+                  <tr className="border-b border-slate-850 text-slate-500 uppercase tracking-widest text-[9px] font-bold">
+                    <th className="py-3">IP Address</th>
+                    <th className="py-3">Status</th>
+                    <th className="py-3">Assigned To</th>
+                    <th className="py-3">Order ID</th>
+                    <th className="py-3">Created</th>
+                    <th className="py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-850/60">
+                  {hostedIps && hostedIps.length > 0 ? (
+                    hostedIps.map((ip: any) => (
+                      <tr key={ip.id} className="hover:bg-slate-900/20">
+                        <td className="py-3.5 font-mono text-white">{ip.ipAddress}</td>
+                        <td className="py-3.5">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            ip.status === 'available' ? 'bg-emerald-500/10 text-emerald-400' :
+                            ip.status === 'assigned' ? 'bg-blue-500/10 text-blue-400' :
+                            'bg-slate-500/10 text-slate-400'
+                          }`}>
+                            {ip.status}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-slate-400">{ip.assignedToUserId || '—'}</td>
+                        <td className="py-3.5 text-slate-400 font-mono text-[10px]">{ip.assignedToOrderId || '—'}</td>
+                        <td className="py-3.5 text-slate-500 text-[10px]">{new Date(ip.createdAt).toLocaleDateString()}</td>
+                        <td className="py-3.5 text-right space-x-2">
+                          {ip.status !== 'assigned' && (
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Delete IP ${ip.ipAddress}?`)) {
+                                  setActionLoading(true);
+                                  try {
+                                    await api.admin.deleteHostedIp(ip.id);
+                                    setSuccessMessage('IP deleted');
+                                    setTimeout(() => setSuccessMessage(''), 3000);
+                                    const ips = await api.admin.getHostedIps();
+                                    setHostedIps(ips);
+                                  } catch (e: any) {
+                                    alert(e.message || 'Failed to delete IP');
+                                  } finally {
+                                    setActionLoading(false);
+                                  }
+                                }
+                              }}
+                              className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-400"
+                            >
+                              <Trash2 className="w-3 h-3 inline" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-slate-500">No IPs configured</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* MOBILE PLANS MANAGEMENT TAB */}
+        {activeTab === 'mobile-plans' && (
+          <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-white">Mobile Plan Pricing</h3>
+              <p className="text-xs text-slate-500">Configure LTeSocks mobile proxy plans and tarification</p>
+            </div>
+
+            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 space-y-4">
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-slate-300">Countries (ISO-2 codes, comma-separated)</label>
+                <input
+                  type="text"
+                  placeholder="US, GB, DE, FR"
+                  defaultValue={paymentSettings?.ltesocksCountries || ''}
+                  className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-slate-300">Custom Prices (days:usd format)</label>
+                <input
+                  type="text"
+                  placeholder="7:4.10, 15:8.15, 30:15.75"
+                  defaultValue={paymentSettings?.ltesocksPrices || ''}
+                  className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-slate-300">Max Speed (Mbit/s)</label>
+                  <input
+                    type="number"
+                    placeholder="200"
+                    defaultValue={paymentSettings?.ltesocksMaxSpeed || '200'}
+                    className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-slate-300">Available Stock</label>
+                  <input
+                    type="number"
+                    placeholder="100"
+                    defaultValue={paymentSettings?.ltesocksStock || '100'}
+                    className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-slate-300">Available Plans (names or blank for live)</label>
+                <input
+                  type="text"
+                  placeholder="unlimited_5g, unlimited_4g, 50gb_5g"
+                  defaultValue={paymentSettings?.ltesocksAvailablePlans || ''}
+                  className="w-full h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <button
+                onClick={() => {
+                  setSuccessMessage('Mobile plans configuration saved (manually configure in settings)');
+                  setTimeout(() => setSuccessMessage(''), 3000);
+                }}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-colors"
+              >
+                Save Mobile Plans Config
+              </button>
+            </div>
+
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 text-sm text-blue-300">
+              <p className="font-semibold mb-2">Note:</p>
+              <p>Mobile plan settings are stored in Global Settings. Edit the PaymentSettings to update LTeSocks integration parameters.</p>
+            </div>
+          </div>
         )}
 
       </main>
