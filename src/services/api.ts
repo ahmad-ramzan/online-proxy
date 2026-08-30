@@ -234,6 +234,19 @@ export const api = {
       if (!res.ok) throw new Error('Failed to fetch transactions');
       const data = await res.json();
       return data.transactions;
+    },
+
+    async clearDueCheckout(gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' | 'cryptomus'): Promise<{ checkoutUrl: string; transactionId: string }> {
+      const res = await fetch(`${API_BASE}/api/payment/clear-due-checkout`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ gateway })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to initiate due payment');
+      }
+      return res.json();
     }
   },
 

@@ -4,11 +4,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
+import {
   Shield, Server, Key, LayoutDashboard, Compass, Lock,
   Loader2, LogOut, Code, AlertTriangle, Users, Database, ArrowLeft, Globe, Zap,
   HelpCircle, PlayCircle, Menu, X, Megaphone, Pin, Tag, Bell, ChevronDown, Settings,
-  Edit2, Save, Image, ExternalLink, Wallet, Plus, Smartphone
+  Edit2, Save, Image, ExternalLink, Wallet, Plus, Smartphone, AlertCircle
 } from 'lucide-react';
 import { User, ProxyPackage, CreatedProxy, ProxyOrder, PaymentTransaction } from './types';
 import { api } from './services/api';
@@ -108,6 +108,8 @@ export default function App() {
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletDue, setWalletDue] = useState(0);
   const [showTopup, setShowTopup] = useState(false);
+  const [showClearDueModal, setShowClearDueModal] = useState(false);
+  const [clearDueGateway, setClearDueGateway] = useState('stripe');
   const [topupAmount, setTopupAmount] = useState<number | undefined>(undefined);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportCategory, setSupportCategory] = useState('technical');
@@ -283,6 +285,14 @@ export default function App() {
   };
 
   const refreshWallet = () => api.wallet.get().then(w => { setWalletBalance(w.balance); setWalletDue(w.due || 0); }).catch(() => {});
+
+  // Sync wallet balance and due from user object
+  useEffect(() => {
+    if (user) {
+      setWalletBalance((user as any).mainBalance || 0);
+      setWalletDue((user as any).dueBalance || 0);
+    }
+  }, [user?.id]);
 
   // Action: Standard Email/Password Auth Login
   const handleLogin = async (e: React.FormEvent) => {
@@ -1280,25 +1290,35 @@ export default function App() {
                   <Plus className="w-3.5 h-3.5 text-white shrink-0" />
                   <span className="text-xs font-bold text-white hidden sm:block">Top Up</span>
                 </button>
-                <div className="flex items-center gap-2.5 px-3 py-2 bg-blue-950/70 border border-blue-700/40 rounded-2xl shadow-lg shadow-blue-950/30">
-                  <span className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center shrink-0">
-                    <Wallet className="w-4 h-4 text-emerald-400" />
-                  </span>
-                  <div className="flex flex-col leading-none min-w-0">
-                    <span className="flex items-center gap-1.5 text-sm font-black text-white">
-                      Wallet
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-sm shadow-red-500/50"></span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5 px-3 py-2 bg-blue-950/70 border border-blue-700/40 rounded-2xl shadow-lg shadow-blue-950/30">
+                    <span className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center shrink-0">
+                      <Wallet className="w-4 h-4 text-emerald-400" />
                     </span>
-                    <span className="mt-1 flex items-center gap-1.5 text-[11px] sm:text-xs font-black whitespace-nowrap">
-                      <span className="text-emerald-400">${walletBalance.toFixed(2)}</span>
-                      {walletDue > 0 && (
-                        <>
-                          <span className="text-slate-500">·</span>
-                          <span className="text-red-400">Due: ${walletDue.toFixed(2)}</span>
-                        </>
-                      )}
-                    </span>
+                    <div className="flex flex-col leading-none min-w-0">
+                      <span className="flex items-center gap-1.5 text-sm font-black text-white">
+                        Wallet
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-sm shadow-red-500/50"></span>
+                      </span>
+                      <span className="mt-1 flex items-center gap-1.5 text-[11px] sm:text-xs font-black whitespace-nowrap">
+                        <span className="text-emerald-400">${walletBalance.toFixed(2)}</span>
+                        {walletDue > 0 && (
+                          <>
+                            <span className="text-slate-500">·</span>
+                            <span className="text-red-400">Due: ${walletDue.toFixed(2)}</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
                   </div>
+                  {walletDue > 0 && (
+                    <button
+                      onClick={() => setShowClearDueModal(true)}
+                      className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      Pay Due
+                    </button>
+                  )}
                 </div>
 
                 <div className="relative">
@@ -1891,6 +1911,72 @@ export default function App() {
       {/* Wallet Top-Up Modal */}
       {showTopup && (
         <TopUpModal showZinipay={zinipayEnabled} defaultAmount={topupAmount} onClose={() => { setShowTopup(false); setTopupAmount(undefined); }} />
+      )}
+
+      {/* Clear Due Modal */}
+      {showClearDueModal && user && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full relative overflow-hidden shadow-2xl">
+            <div className="absolute pointer-events-none top-0 right-0 w-24 h-24 bg-red-500/10 rounded-full blur-2xl"></div>
+
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-400" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Clear Due Balance</h3>
+              </div>
+              <button
+                onClick={() => setShowClearDueModal(false)}
+                className="text-slate-500 hover:text-white transition-colors cursor-pointer text-sm font-bold w-6 h-6 flex items-center justify-center bg-slate-950 rounded-full border border-slate-800/60"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                <p className="text-sm text-slate-300">You have an outstanding balance that needs to be paid:</p>
+                <p className="text-3xl font-black text-red-400 mt-2">${walletDue.toFixed(2)}</p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-300 uppercase">Select Payment Method</label>
+                <div className="space-y-2">
+                  {['stripe', 'crypto', 'paypal'].map((gw) => (
+                    <button
+                      key={gw}
+                      onClick={() => setClearDueGateway(gw)}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-bold transition-all cursor-pointer text-left capitalize ${
+                        clearDueGateway === gw
+                          ? 'bg-blue-600 text-white border border-blue-500'
+                          : 'bg-slate-900/50 text-slate-400 border border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      {gw === 'stripe' ? '💳 Card (Stripe)' : gw === 'crypto' ? '₿ Cryptocurrency' : '🅿️ PayPal'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.payment.clearDueCheckout(clearDueGateway as any);
+                    window.location.href = res.checkoutUrl;
+                  } catch (e: any) {
+                    alert(e.message || 'Failed to initiate payment');
+                  }
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors"
+              >
+                Pay ${walletDue.toFixed(2)} Now
+              </button>
+
+              <p className="text-xs text-slate-500 text-center">
+                Payment is processed securely. Your due balance will be cleared upon successful payment.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Support Dialog Modal */}
