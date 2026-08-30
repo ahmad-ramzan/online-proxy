@@ -551,6 +551,13 @@ export const api = {
       return res.json();
     },
 
+    async getMobileProxies(): Promise<any[]> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-proxies`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load mobile proxies');
+      const data = await res.json();
+      return data.proxies || [];
+    },
+
     async addMobileProxy(proxy: { ip: string; port: string; username: string; password: string; planName: string; countryCode: string; priceUsd: number }): Promise<any> {
       const res = await fetch(`${API_BASE}/api/admin/mobile-proxies`, {
         method: 'POST',
@@ -574,6 +581,19 @@ export const api = {
         throw new Error(err.error || 'Failed to delete proxy');
       }
       return true;
+    },
+
+    async updateMobileProxyStatus(proxyId: string, status: string): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-proxies/${proxyId}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update proxy');
+      }
+      return res.json();
     },
 
     // Hosted IP Management

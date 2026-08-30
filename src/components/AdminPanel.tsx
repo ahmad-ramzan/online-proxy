@@ -12,6 +12,7 @@ import {
 import { User, ProxyPackage, SystemLog, CountryConfig, Coupon, NoticePost, SupportTicket } from '../types';
 import { api } from '../services/api';
 import MobileProxyAdmin from './MobileProxyAdmin';
+import AdminMobileProxyList from './AdminMobileProxyList';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -1718,7 +1719,9 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
         {/* MOBILE PROXY MANAGEMENT TAB */}
         {activeTab === 'mobile-proxies' && (
-          <MobileProxyAdmin />
+          <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-8 animate-fade-in">
+            <AdminMobileProxyList />
+          </div>
         )}
 
         {/* HOSTED IPS MANAGEMENT TAB */}

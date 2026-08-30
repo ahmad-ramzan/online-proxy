@@ -1093,6 +1093,16 @@ app.post('/api/admin/mobile-orders/:orderId/assign', authenticateToken, requireA
   }
 });
 
+// Admin lists all mobile proxies in inventory
+app.get('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const proxies = dbInstance.getMobileProxies();
+    res.json({ proxies });
+  } catch (e: any) {
+    res.status(500).json({ error: 'Failed to load proxies' });
+  }
+});
+
 // Admin adds a proxy to the inventory pool
 app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res) => {
   const { ip, port, username, password, planName, countryCode, priceUsd } = req.body;
@@ -1120,6 +1130,30 @@ app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res
   } catch (e: any) {
     console.error('[/api/admin/mobile-proxies] Error:', e.message || e);
     res.status(500).json({ error: e.message || 'Failed to add proxy.' });
+  }
+});
+
+// Admin updates proxy status (enable/disable)
+app.put('/api/admin/mobile-proxies/:proxyId', authenticateToken, requireAdmin, (req, res) => {
+  const { proxyId } = req.params;
+  const { status } = req.body;
+  const proxy = dbInstance.getMobileProxyById(proxyId);
+
+  if (!proxy) {
+    return res.status(404).json({ error: 'Proxy not found.' });
+  }
+
+  if (!status || !['available', 'inactive', 'assigned'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: available, inactive, or assigned.' });
+  }
+
+  try {
+    dbInstance.updateMobileProxy(proxyId, { status });
+    dbInstance.log('info', 'proxy', `Admin updated proxy status: ${proxy.ip}:${proxy.port} -> ${status}`);
+    res.json({ success: true, proxy: dbInstance.getMobileProxyById(proxyId) });
+  } catch (e: any) {
+    console.error('[/api/admin/mobile-proxies/:proxyId] Error:', e.message || e);
+    res.status(500).json({ error: e.message || 'Failed to update proxy.' });
   }
 });
 
