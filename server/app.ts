@@ -1074,11 +1074,11 @@ app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res
       protocol: 'socks5',
       status: 'available',
       createdAt: new Date().toISOString(),
-      operator: operator || undefined,
-      poolSize: poolSize || undefined,
-      maxSpeedMbps: maxSpeedMbps !== undefined ? parseFloat(maxSpeedMbps) : undefined,
-      ipChangeDelaySec: ipChangeDelaySec !== undefined ? parseFloat(ipChangeDelaySec) : undefined,
-      rotationMinutes: rotationMinutes !== undefined ? parseFloat(rotationMinutes) : undefined
+      operator: operator || 'T-Mobile',
+      poolSize: poolSize || '10K+',
+      maxSpeedMbps: parseFloat(maxSpeedMbps) > 0 ? parseFloat(maxSpeedMbps) : 100,
+      ipChangeDelaySec: parseFloat(ipChangeDelaySec) >= 0 ? parseFloat(ipChangeDelaySec) : 0,
+      rotationMinutes: parseFloat(rotationMinutes) > 0 ? parseFloat(rotationMinutes) : 30
     });
     dbInstance.log('info', 'proxy', `Admin added proxy to inventory: ${ip}:${port}`);
     res.json({ proxy });
@@ -1111,11 +1111,12 @@ app.put('/api/admin/mobile-proxies/:proxyId', authenticateToken, requireAdmin, (
   if (planName !== undefined) updates.planName = String(planName);
   if (countryCode !== undefined) updates.countryCode = String(countryCode);
   if (priceUsd !== undefined) updates.priceUsd = parseFloat(priceUsd) || 0;
-  if (operator !== undefined) updates.operator = String(operator);
-  if (poolSize !== undefined) updates.poolSize = String(poolSize);
-  if (maxSpeedMbps !== undefined) updates.maxSpeedMbps = parseFloat(maxSpeedMbps) || 0;
-  if (ipChangeDelaySec !== undefined) updates.ipChangeDelaySec = parseFloat(ipChangeDelaySec) || 0;
-  if (rotationMinutes !== undefined) updates.rotationMinutes = parseFloat(rotationMinutes) || 0;
+  // Blank/zero means "use the default" rather than "clear the field".
+  if (operator !== undefined) updates.operator = String(operator).trim() || 'T-Mobile';
+  if (poolSize !== undefined) updates.poolSize = String(poolSize).trim() || '10K+';
+  if (maxSpeedMbps !== undefined) updates.maxSpeedMbps = parseFloat(maxSpeedMbps) > 0 ? parseFloat(maxSpeedMbps) : 100;
+  if (ipChangeDelaySec !== undefined) updates.ipChangeDelaySec = parseFloat(ipChangeDelaySec) >= 0 ? parseFloat(ipChangeDelaySec) : 0;
+  if (rotationMinutes !== undefined) updates.rotationMinutes = parseFloat(rotationMinutes) > 0 ? parseFloat(rotationMinutes) : 30;
 
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ error: 'No fields to update.' });

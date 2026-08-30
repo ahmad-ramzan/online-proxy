@@ -85,11 +85,14 @@ export default function AdminMobileProxyList() {
       planName: formData.planName || 'Standard',
       countryCode: formData.countryCode || 'US',
       priceUsd: parseFloat(formData.priceUsd.toString()) || 5,
-      operator: formData.operator || undefined,
-      poolSize: formData.poolSize || undefined,
-      maxSpeedMbps: formData.maxSpeedMbps || undefined,
-      ipChangeDelaySec: formData.ipChangeDelaySec || undefined,
-      rotationMinutes: formData.rotationMinutes || undefined
+      // Always send these (even blank) so the server can fill sensible
+      // defaults — an omitted key would just be dropped by JSON.stringify
+      // and the server would leave the field untouched instead.
+      operator: formData.operator,
+      poolSize: formData.poolSize,
+      maxSpeedMbps: formData.maxSpeedMbps,
+      ipChangeDelaySec: formData.ipChangeDelaySec,
+      rotationMinutes: formData.rotationMinutes
     };
 
     try {
