@@ -36,6 +36,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [orderDateFrom, setOrderDateFrom] = useState('');
   const [orderDateTo, setOrderDateTo] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
 
   // Support Helpdesk state
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
@@ -516,8 +517,17 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         {/* 2. USER MANAGEMENT */}
         {activeTab === 'users' && (
           <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-6 animate-fade-in">
-            <h3 className="text-base font-black text-white">Registered Accounts</h3>
-            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h3 className="text-base font-black text-white">Registered Accounts</h3>
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="sm:w-80 h-10 bg-slate-950/80 border border-slate-700 rounded-lg text-sm text-white px-3 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-300">
                 <thead>
@@ -526,11 +536,17 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     <th className="py-3">Email Address</th>
                     <th className="py-3">Role</th>
                     <th className="py-3">State</th>
+                    <th className="py-3">Balance / Due</th>
                     <th className="py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850/60">
-                  {usersList.map((usr) => (
+                  {usersList
+                    .filter(usr =>
+                      usr.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+                      usr.email.toLowerCase().includes(userSearch.toLowerCase())
+                    )
+                    .map((usr) => (
                     <tr key={usr.id} className="hover:bg-slate-900/20">
                       <td className="py-3.5 font-semibold text-white">{usr.name}</td>
                       <td className="py-3.5 font-mono text-slate-400">{usr.email}</td>
@@ -543,6 +559,14 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                         <span className={`text-[10px] font-bold ${usr.isActive ? 'text-green-400' : 'text-red-400'}`}>
                           {usr.isActive ? '● Active' : '● Blocked'}
                         </span>
+                      </td>
+                      <td className="py-3.5">
+                        <div className="space-y-1 text-[10px]">
+                          <div className="text-emerald-400 font-bold">${((usr as any).walletBalance || 0).toFixed(2)}</div>
+                          {((usr as any).walletDue || 0) > 0 && (
+                            <div className="text-red-400 font-bold">Due: ${((usr as any).walletDue).toFixed(2)}</div>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 text-right space-x-2">
                         <button
@@ -573,6 +597,28 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                           className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-red-500/10 hover:bg-red-500/20 text-red-400"
                         >
                           Due{(usr as any).walletDue ? ` $${((usr as any).walletDue).toFixed(2)}` : ''}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const couponCode = prompt(`Create coupon for ${usr.name} (enter code or blank to auto-generate):`);
+                            if (couponCode !== null) {
+                              setActionLoading(true);
+                              try {
+                                const code = couponCode || `GIFT${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+                                await api.admin.createCoupon({ code, type: 'percent', value: 100, maxUses: 1 });
+                                setCoupons(await api.admin.getCoupons());
+                                alert(`Coupon created: ${code}`);
+                              } catch (e: any) {
+                                alert('Failed to create coupon: ' + (e.message || 'Unknown error'));
+                              } finally {
+                                setActionLoading(false);
+                              }
+                            }
+                          }}
+                          disabled={actionLoading}
+                          className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-green-500/10 hover:bg-green-500/20 text-green-400 disabled:opacity-50"
+                        >
+                          Coupon
                         </button>
                         <button
                           onClick={() => handleDeleteUser(usr.id)}
