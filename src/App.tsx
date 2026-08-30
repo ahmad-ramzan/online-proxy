@@ -109,7 +109,9 @@ export default function App() {
   const [walletDue, setWalletDue] = useState(0);
   const [showTopup, setShowTopup] = useState(false);
   const [showClearDueModal, setShowClearDueModal] = useState(false);
-  const [clearDueGateway, setClearDueGateway] = useState('stripe');
+  const [clearDueGateway, setClearDueGateway] = useState<'paystation' | 'cryptomus'>('paystation');
+  const [clearDuePhone, setClearDuePhone] = useState('');
+  const [clearDueError, setClearDueError] = useState('');
   const [topupAmount, setTopupAmount] = useState<number | undefined>(undefined);
   const [supportMessage, setSupportMessage] = useState('');
   const [supportCategory, setSupportCategory] = useState('technical');
@@ -1941,26 +1943,45 @@ export default function App() {
               <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-300 uppercase">Select Payment Method</label>
                 <div className="space-y-2">
-                  {['stripe', 'crypto', 'paypal'].map((gw) => (
+                  {(['paystation', 'cryptomus'] as const).map((gw) => (
                     <button
                       key={gw}
-                      onClick={() => setClearDueGateway(gw)}
-                      className={`w-full px-4 py-3 rounded-lg text-sm font-bold transition-all cursor-pointer text-left capitalize ${
+                      onClick={() => { setClearDueGateway(gw); setClearDueError(''); }}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-bold transition-all cursor-pointer text-left ${
                         clearDueGateway === gw
                           ? 'bg-blue-600 text-white border border-blue-500'
                           : 'bg-slate-900/50 text-slate-400 border border-slate-700 hover:border-slate-600'
                       }`}
                     >
-                      {gw === 'stripe' ? '💳 Card (Stripe)' : gw === 'crypto' ? '₿ Cryptocurrency' : '🅿️ PayPal'}
+                      {gw === 'paystation' ? '🇧🇩 BDT Payment (bKash / Nagad / Card)' : '₿ Cryptocurrency'}
                     </button>
                   ))}
                 </div>
               </div>
 
+              {clearDueGateway === 'paystation' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 uppercase">Phone number</label>
+                  <input
+                    type="tel"
+                    value={clearDuePhone}
+                    onChange={(e) => { setClearDuePhone(e.target.value.replace(/[^0-9+]/g, '')); setClearDueError(''); }}
+                    placeholder="01XXXXXXXXX"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              )}
+
+              {clearDueError && <p className="text-xs text-red-400">{clearDueError}</p>}
+
               <button
                 onClick={async () => {
+                  if (clearDueGateway === 'paystation' && !clearDuePhone.trim()) {
+                    setClearDueError('Phone number is required for BDT Payment.');
+                    return;
+                  }
                   try {
-                    const res = await api.payment.clearDueCheckout(clearDueGateway as any);
+                    const res = await api.payment.clearDueCheckout(clearDueGateway, clearDuePhone.trim() || undefined);
                     if (res.external || /^https?:\/\//i.test(res.checkoutUrl)) {
                       window.location.href = res.checkoutUrl;
                       return;
@@ -1972,11 +1993,11 @@ export default function App() {
                       transactionId: urlParams.get('transactionId') || '',
                       orderId: urlParams.get('orderId') || '',
                       amount: parseFloat(urlParams.get('amount') || '0'),
-                      gateway: (urlParams.get('gateway') as any) || 'stripe'
+                      gateway: (urlParams.get('gateway') as any) || 'credit_card'
                     });
                     setPage('checkout');
                   } catch (e: any) {
-                    alert(e.message || 'Failed to initiate payment');
+                    setClearDueError(e.message || 'Failed to initiate payment');
                   }
                 }}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors"

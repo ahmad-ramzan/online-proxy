@@ -236,11 +236,11 @@ export const api = {
       return data.transactions;
     },
 
-    async clearDueCheckout(gateway: 'stripe' | 'crypto' | 'paypal' | 'credit_card' | 'paystation' | 'cryptomus'): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
+    async clearDueCheckout(gateway: 'paystation' | 'cryptomus', custPhone?: string): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
       const res = await fetch(`${API_BASE}/api/payment/clear-due-checkout`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ gateway })
+        body: JSON.stringify({ gateway, custPhone })
       });
       if (!res.ok) {
         const err = await res.json();
