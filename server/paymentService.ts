@@ -472,6 +472,14 @@ export class PaymentService {
     };
     dbInstance.insertOrder(newOrder);
 
+    // Assign a hosted IP to the user (if available)
+    const assignedIp = dbInstance.assignIpToUser(params.userId, newOrder.id);
+    if (assignedIp) {
+      dbInstance.log('info', 'proxy', `IP assigned to wallet order ${newOrder.id}: ${assignedIp.ipAddress}`);
+    } else {
+      dbInstance.log('warning', 'proxy', `No available IPs for wallet order ${newOrder.id} — admin needs to add more IPs`);
+    }
+
     const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     dbInstance.insertTransaction({
       id: txnId, userId: params.userId, userEmail: params.userEmail, orderId: newOrder.id,
@@ -606,6 +614,14 @@ export class PaymentService {
     // Update corresponding Order State to 'active'
     db.updateOrder(txn.orderId, { status: 'active' });
     db.log('info', 'payment', `Proxy allocation unlocked. Package is now active on order: ${txn.orderId}`);
+
+    // Assign a hosted IP to the user (if available)
+    const assignedIp = db.assignIpToUser(txn.userId, txn.orderId);
+    if (assignedIp) {
+      db.log('info', 'proxy', `IP assigned to order ${txn.orderId}: ${assignedIp.ipAddress}`);
+    } else {
+      db.log('warning', 'proxy', `No available IPs for order ${txn.orderId} — admin needs to add more IPs`);
+    }
 
     // Count coupon usage on successful completion.
     if (txn.couponCode) {

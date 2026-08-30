@@ -524,6 +524,23 @@ class Database {
     return db.clearDuePayments[idx];
   }
 
+  // Assign an available IP to a user (atomic operation)
+  public assignIpToUser(userId: string, orderId: string): HostedIP | null {
+    const db = this.read();
+    if (!db.hostedIps) db.hostedIps = [];
+    const idx = db.hostedIps.findIndex(ip => ip.status === 'available');
+    if (idx === -1) return null; // No available IPs
+
+    const ip = db.hostedIps[idx];
+    ip.status = 'assigned';
+    ip.assignedToUserId = userId;
+    ip.assignedToOrderId = orderId;
+    ip.assignedAt = new Date().toISOString();
+
+    this.write(db);
+    return ip;
+  }
+
   public updateTransaction(id: string, updates: Partial<PaymentTransaction>): PaymentTransaction | null {
     const db = this.read();
     const idx = db.transactions.findIndex(t => t.id === id);
