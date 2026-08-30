@@ -1244,14 +1244,24 @@ app.post('/api/admin/users/status', authenticateToken, requireAdmin, (req, res) 
 });
 
 // Admin: set a user's wallet Due (amount owed). Due is admin-controlled — it is
-// never created automatically by purchases.
+// never created automatically by purchases. Giving/raising a due amount also
+// credits the same delta to mainBalance (so the customer can actually spend
+// it); lowering due (an admin correction) claws the delta back the same way.
+// Normal orders and gateway "clear due" payments never go through this route,
+// so due only ever moves when an admin explicitly sets it here.
 app.post('/api/admin/users/due', authenticateToken, requireAdmin, (req, res) => {
   const { userId, due } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID is required.' });
-  const amount = Math.max(0, Math.round((parseFloat(due) || 0) * 100) / 100);
-  const updated = dbInstance.updateUser(userId, { dueBalance: amount });
-  if (!updated) return res.status(404).json({ error: 'User profile not found.' });
-  dbInstance.log('security', 'admin', `Admin set wallet Due for ${updated.email} to $${amount}.`);
+  const user = dbInstance.getUsers().find(u => u.id === userId);
+  if (!user) return res.status(404).json({ error: 'User profile not found.' });
+
+  const newDue = Math.max(0, Math.round((parseFloat(due) || 0) * 100) / 100);
+  const oldDue = user.dueBalance || 0;
+  const delta = Math.round((newDue - oldDue) * 100) / 100;
+  const newMainBalance = Math.max(0, Math.round(((user.mainBalance || 0) + delta) * 100) / 100);
+
+  const updated = dbInstance.updateUser(userId, { dueBalance: newDue, mainBalance: newMainBalance });
+  dbInstance.log('security', 'admin', `Admin set wallet Due for ${updated!.email} to $${newDue} (main balance ${delta >= 0 ? '+' : ''}${delta} → $${newMainBalance}).`);
   res.json({ user: updated });
 });
 

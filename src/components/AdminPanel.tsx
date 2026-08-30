@@ -171,14 +171,15 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   };
 
   const handleSetUserDue = async (userId: string, current: number) => {
-    const input = prompt('Set wallet Due (USD) for this user:', String(current || 0));
+    const input = prompt('Set wallet Due (USD) for this user. Raising it also credits the same amount to their Main Balance so they can spend it:', String(current || 0));
     if (input === null) return;
     const amount = parseFloat(input);
     if (!Number.isFinite(amount) || amount < 0) { alert('Enter a valid amount (0 or more).'); return; }
     setActionLoading(true);
     try {
       await api.admin.setUserDue(userId, amount);
-      triggerNotify(`Wallet Due set to $${amount.toFixed(2)}.`);
+      const delta = Math.round((amount - (current || 0)) * 100) / 100;
+      triggerNotify(`Due set to $${amount.toFixed(2)} (Main Balance ${delta >= 0 ? '+' : ''}$${delta.toFixed(2)}).`);
       await loadAdminData();
     } catch (e: any) {
       alert(e.message || 'Failed to set due.');
