@@ -13,6 +13,7 @@ export interface User {
   createdAt: string;
   mainBalance: number;    // prepaid balance for purchases (USD)
   dueBalance: number;     // amount owed / payable (USD)
+  adminNote?: string;     // private note admin can leave on this account
 }
 
 // A customer's mobile proxy — assigned from the admin's manually-managed pool.

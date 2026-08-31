@@ -373,7 +373,7 @@ export const api = {
       return data.orders;
     },
 
-    async updateUserStatus(userId: string, updates: { isActive?: boolean; role?: 'user' | 'admin'; password?: string }): Promise<User> {
+    async updateUserStatus(userId: string, updates: { isActive?: boolean; role?: 'user' | 'admin'; password?: string; adminNote?: string }): Promise<User> {
       const res = await fetch(`${API_BASE}/api/admin/users/status`, {
         method: 'POST',
         headers: getHeaders(),

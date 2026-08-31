@@ -205,6 +205,21 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     }
   };
 
+  const handleSetUserNote = async (userId: string, current: string) => {
+    const input = prompt('Private admin note for this user (visible only in Admin Panel):', current || '');
+    if (input === null) return;
+    setActionLoading(true);
+    try {
+      await api.admin.updateUserStatus(userId, { adminNote: input });
+      triggerNotify('Note saved.');
+      await loadAdminData();
+    } catch (e: any) {
+      alert(e.message || 'Failed to save note.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 2. Package Actions
   const handleCreatePackage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -580,6 +595,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     <th className="py-3">Role</th>
                     <th className="py-3">State</th>
                     <th className="py-3">Balance / Due</th>
+                    <th className="py-3">Note</th>
                     <th className="py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -615,6 +631,11 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                           )}
                         </div>
                       </td>
+                      <td className="py-3.5 max-w-[180px]">
+                        <span className="text-[10px] text-slate-400 truncate block" title={(usr as any).adminNote || ''}>
+                          {(usr as any).adminNote || '—'}
+                        </span>
+                      </td>
                       <td className="py-3.5 text-right space-x-2">
                         <button
                           onClick={() => handleToggleUserStatus(usr.id, usr.isActive)}
@@ -644,6 +665,12 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                           className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400"
                         >
                           Balance{(usr as any).mainBalance ? ` $${((usr as any).mainBalance).toFixed(2)}` : ''}
+                        </button>
+                        <button
+                          onClick={() => handleSetUserNote(usr.id, (usr as any).adminNote || '')}
+                          className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-300"
+                        >
+                          Note
                         </button>
                         <button
                           onClick={() => handleSetUserDue(usr.id, (usr as any).dueBalance || 0)}

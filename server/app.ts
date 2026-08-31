@@ -1217,7 +1217,7 @@ app.get('/api/admin/orders', authenticateToken, requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/users/status', authenticateToken, requireAdmin, (req, res) => {
-  const { userId, isActive, role, password } = req.body;
+  const { userId, isActive, role, password, adminNote } = req.body;
 
   if (!userId) {
     return res.status(400).json({ error: 'User ID is required.' });
@@ -1227,6 +1227,7 @@ app.post('/api/admin/users/status', authenticateToken, requireAdmin, (req, res) 
   if (isActive !== undefined) updates.isActive = isActive;
   if (role !== undefined) updates.role = role;
   if (password !== undefined) updates.password = password;
+  if (adminNote !== undefined) updates.adminNote = String(adminNote);
 
   const updated = dbInstance.updateUser(userId, updates);
 
