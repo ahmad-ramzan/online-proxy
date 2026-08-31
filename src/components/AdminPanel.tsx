@@ -679,28 +679,6 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                           Due{(usr as any).dueBalance ? ` $${((usr as any).dueBalance).toFixed(2)}` : ''}
                         </button>
                         <button
-                          onClick={async () => {
-                            const couponCode = prompt(`Create coupon for ${usr.name} (enter code or blank to auto-generate):`);
-                            if (couponCode !== null) {
-                              setActionLoading(true);
-                              try {
-                                const code = couponCode || `GIFT${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-                                await api.admin.createCoupon({ code, type: 'percent', value: 100, maxUses: 1 });
-                                setCoupons(await api.admin.getCoupons());
-                                alert(`Coupon created: ${code}`);
-                              } catch (e: any) {
-                                alert('Failed to create coupon: ' + (e.message || 'Unknown error'));
-                              } finally {
-                                setActionLoading(false);
-                              }
-                            }
-                          }}
-                          disabled={actionLoading}
-                          className="px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer bg-green-500/10 hover:bg-green-500/20 text-green-400 disabled:opacity-50"
-                        >
-                          Coupon
-                        </button>
-                        <button
                           onClick={() => handleDeleteUser(usr.id)}
                           disabled={usr.id === 'usr_admin'}
                           className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded cursor-pointer"
