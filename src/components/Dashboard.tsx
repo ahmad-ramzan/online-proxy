@@ -41,11 +41,15 @@ export default function Dashboard({
 
   // Real bandwidth usage from Proxy-Seller (per sub-user).
   const [usage, setUsage] = useState<{ live: boolean; usedGb: number; limitGb: number } | null>(null);
+  // Keyed on id+status (not just .length) so a status change on an existing
+  // order — e.g. active -> expired — re-fetches instead of leaving the
+  // Bandwidth Usage card showing stale numbers from before the change.
+  const ordersKey = orders.map(o => `${o.id}:${o.status}`).join(',');
   useEffect(() => {
     let active = true;
     api.proxy.getUsage().then((u) => { if (active) setUsage(u); }).catch(() => {});
     return () => { active = false; };
-  }, [orders.length, proxies.length]);
+  }, [ordersKey, proxies.length]);
 
   const handleCopy = async (id: string, text: string) => {
     const ok = await copyToClipboard(text);
@@ -90,8 +94,12 @@ export default function Dashboard({
   );
 
   // Prefer real Proxy-Seller usage; fall back to local figures until it loads.
-  const totalGbUsed = usage ? Math.round(usage.usedGb * 100) / 100 : localUsedGb;
-  const displayTotalGb = usage && usage.live && usage.limitGb > 0 ? usage.limitGb : totalGbPurchased;
+  // Guard against a stale usage fetch outliving the order it was tied to: if
+  // there's no active order right now, always show 0/0 rather than trusting
+  // a number that no longer has anything backing it.
+  const hasActiveOrder = orders.some(o => o.status === 'active');
+  const totalGbUsed = hasActiveOrder ? (usage ? Math.round(usage.usedGb * 100) / 100 : localUsedGb) : 0;
+  const displayTotalGb = hasActiveOrder ? (usage && usage.live && usage.limitGb > 0 ? usage.limitGb : totalGbPurchased) : 0;
 
   return (
     <div className="space-y-8 animate-fade-in text-slate-200">
