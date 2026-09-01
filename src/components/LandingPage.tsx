@@ -101,7 +101,7 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
     {
       icon: <Globe className="w-6 h-6 text-blue-400" />,
       title: 'Global Geos Selection',
-      desc: 'Deploy rotating residential nodes across Canada, USA, and UK instantly.'
+      desc: 'Deploy rotating residential and mobile nodes across Canada, USA, and UK instantly.'
     },
     {
       icon: <Zap className="w-6 h-6 text-purple-400" />,
@@ -234,13 +234,13 @@ export default function LandingPage({ packages, onNavigate, onBuyPackage, isAuth
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-none">
               Deploy Ultra-Pure <br />
               <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                Residential Proxies
+                Residential & Mobile Proxies
               </span> <br />
               With One Click.
             </h1>
 
             <p className="text-lg text-slate-400 max-w-2xl leading-relaxed">
-              Unlock clean, blazing fast IP addresses across the UK, USA, and Canada.
+              Unlock clean, blazing fast residential and mobile (5G/LTE) IP addresses across the UK, USA, and Canada.
               Built on our decoupled high-availability API network layer. Zero throttling, maximum privacy.
             </p>
 
