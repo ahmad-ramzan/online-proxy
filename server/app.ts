@@ -970,7 +970,7 @@ app.post('/api/payment/clear-due-checkout', authenticateToken, async (req, res) 
       userEmail: user.email,
       amountUsd: user.dueBalance,
       gateway: gateway as any,
-      appUrl: process.env.APP_URL,
+      appUrl: publicBaseUrl(req),
       custPhone
     });
 

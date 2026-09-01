@@ -416,6 +416,7 @@ export class PaymentService {
       });
       if (invoice.ok && invoice.paymentUrl) {
         dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId });
+        dbInstance.log('info', 'payment', `Clear-due PayStation checkout ready: txn ${txnId}, $${amountUsd}`);
         return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
       }
       throw new Error(invoice.message || 'PayStation checkout could not be created.');
@@ -431,14 +432,16 @@ export class PaymentService {
       });
       if (invoice.ok && invoice.url) {
         dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId, providerTxnId: invoice.uuid });
+        dbInstance.log('info', 'payment', `Clear-due Cryptomus checkout ready: txn ${txnId}, $${amountUsd}`);
         return { checkoutUrl: invoice.url, transactionId: txnId, external: true };
       }
       throw new Error(invoice.message || 'Cryptomus checkout could not be created.');
     }
 
-    // Fallback: simulated in-app checkout (demo stripe / crypto / paypal gateways)
+    // Fallback: simulated in-app checkout (demo stripe / crypto / paypal gateways,
+    // or a real gateway requested without an appUrl to build callback URLs from).
     const checkoutUrl = `/checkout-simulation?transactionId=${txnId}&orderId=&amount=${amountUsd}&gateway=${params.gateway}`;
-    dbInstance.log('info', 'payment', `Clear-due checkout session pre-allocated: TransID: ${txnId} for $${amountUsd}`);
+    dbInstance.log('warning', 'payment', `Clear-due checkout fell back to simulation (no real gateway matched): TransID: ${txnId} for $${amountUsd}, gateway ${params.gateway}, appUrl ${params.appUrl ? 'present' : 'MISSING'}`);
     return { checkoutUrl, transactionId: txnId };
   }
 
