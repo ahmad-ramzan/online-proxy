@@ -12,15 +12,7 @@ import {
 import { User, CreatedProxy, ProxyOrder, PaymentTransaction } from '../types';
 import { api } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
-
-// Render a country flag emoji from an ISO-2 code (falls back to legacy names, then a globe).
-function flagEmoji(code?: string, name?: string): string {
-  const nameMap: Record<string, string> = { USA: 'US', UK: 'GB', 'UNITED KINGDOM': 'GB', 'UNITED STATES': 'US', CANADA: 'CA' };
-  let cc = (code || '').toUpperCase();
-  if (!/^[A-Z]{2}$/.test(cc) && name) cc = nameMap[name.toUpperCase()] || '';
-  if (!/^[A-Z]{2}$/.test(cc)) return '🌐';
-  return String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
-}
+import FlagIcon from './FlagIcon';
 
 interface DashboardProps {
   user: User;
@@ -233,9 +225,7 @@ export default function Dashboard({
                 >
                   <div className="space-y-1.5 w-full sm:w-auto">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">
-                        {flagEmoji(proxy.countryCode, proxy.country)}
-                      </span>
+                      <FlagIcon code={proxy.countryCode} name={proxy.country} className="w-6 h-4" />
                       <span className="text-xs font-bold text-white uppercase">{proxy.country} Node</span>
                       <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
                         proxy.status === 'online' 

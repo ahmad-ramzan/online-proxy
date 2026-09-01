@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Smartphone, Trash2, Loader2, Copy, Check, Zap, Wallet, ShoppingBag } from 'lucide-react';
 import { api } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
+import FlagIcon from './FlagIcon';
 
 interface MobilePlanGroup {
   planName: string;
@@ -103,7 +104,7 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
                 <div key={m.id} className="bg-slate-900/50 border border-slate-850 rounded-2xl p-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-3">
-                      <span className="text-3xl">{flagEmoji(m.countryCode)}</span>
+                      <FlagIcon code={m.countryCode} className="w-10 h-7 rounded" />
                       <div>
                         <p className="text-sm font-bold text-white">{m.planName}</p>
                         <p className="text-[11px] text-slate-500">{(m.protocol || 'socks5').toUpperCase()}</p>
@@ -149,7 +150,7 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
               <div key={`${plan.planName}::${plan.countryCode}`} className="bg-slate-950/60 border border-slate-850 hover:border-violet-500/40 rounded-2xl p-5 flex flex-col justify-between transition-colors">
                 <div>
                   <div className="flex items-center gap-3 border-b border-slate-850 pb-3 mb-3">
-                    <span className="text-5xl leading-none">{flagEmoji(plan.countryCode)}</span>
+                    <FlagIcon code={plan.countryCode} className="w-14 h-10 rounded" />
                     <div>
                       <p className="text-base font-bold text-white leading-snug">{plan.planName}</p>
                       {!inStock && <p className="text-sm font-semibold text-red-400 mt-0.5">Unavailable, please contact support</p>}

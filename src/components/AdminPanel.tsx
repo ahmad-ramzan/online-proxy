@@ -13,6 +13,7 @@ import { User, ProxyPackage, SystemLog, CountryConfig, Coupon, NoticePost, Suppo
 import { api } from '../services/api';
 import MobileProxyAdmin from './MobileProxyAdmin';
 import AdminMobileProxyList from './AdminMobileProxyList';
+import FlagIcon from './FlagIcon';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -993,7 +994,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {countries.map((c) => (
                 <div key={c.code} className="p-4 bg-slate-950/60 border border-slate-850 rounded-xl flex items-center justify-between text-xs">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{c.flag}</span>
+                    <FlagIcon code={c.code} className="w-9 h-6 rounded" />
                     <div>
                       <p className="font-bold text-white">{c.name} ({c.code})</p>
                       <p className="text-[10px] text-slate-500 mt-0.5">{c.totalServers} server connections configured</p>
