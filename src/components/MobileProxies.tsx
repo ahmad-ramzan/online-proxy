@@ -18,6 +18,7 @@ interface MobilePlanGroup {
   maxSpeedMbps?: number;
   ipChangeDelaySec?: number;
   rotationMinutes?: number;
+  durationDays?: number;
 }
 
 interface MobileProxiesProps {
@@ -156,6 +157,7 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
                       <div><span className="text-slate-500">Country:</span> <span className="text-slate-200 font-semibold">{countryName(plan.countryCode)}</span></div>
                       {plan.operator && <div><span className="text-slate-500">Operator:</span> <span className="text-slate-200 font-semibold">{plan.operator}</span></div>}
                       <div><span className="text-slate-500">Type:</span> <span className="text-slate-200 font-semibold">Private</span></div>
+                      {!!plan.durationDays && <div><span className="text-slate-500">Duration:</span> <span className="text-slate-200 font-semibold">{plan.durationDays} {plan.durationDays === 1 ? 'Day' : 'Days'}</span></div>}
                     </div>
                     <div className="space-y-1.5 text-right">
                       {plan.poolSize && <div><span className="text-slate-500">IP Pool Size:</span> <span className="text-slate-200 font-semibold">{plan.poolSize}</span></div>}

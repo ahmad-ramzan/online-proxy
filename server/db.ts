@@ -491,7 +491,7 @@ class Database {
       else groups.set(key, {
         planName: p.planName, countryCode: p.countryCode, priceUsd: p.priceUsd, availableCount: 1,
         operator: p.operator, poolSize: p.poolSize, maxSpeedMbps: p.maxSpeedMbps,
-        ipChangeDelaySec: p.ipChangeDelaySec, rotationMinutes: p.rotationMinutes
+        ipChangeDelaySec: p.ipChangeDelaySec, rotationMinutes: p.rotationMinutes, durationDays: p.durationDays
       });
     }
     return Array.from(groups.values());

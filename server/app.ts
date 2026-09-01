@@ -1055,7 +1055,7 @@ app.get('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res)
 
 // Admin adds a proxy to the inventory pool
 app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res) => {
-  const { ip, port, username, password, planName, countryCode, priceUsd, operator, poolSize, maxSpeedMbps, ipChangeDelaySec, rotationMinutes } = req.body;
+  const { ip, port, username, password, planName, countryCode, priceUsd, operator, poolSize, maxSpeedMbps, ipChangeDelaySec, rotationMinutes, durationDays } = req.body;
 
   if (!ip || !port || !username || !password) {
     return res.status(400).json({ error: 'ip, port, username, password are required.' });
@@ -1078,7 +1078,8 @@ app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res
       poolSize: poolSize || '10K+',
       maxSpeedMbps: parseFloat(maxSpeedMbps) > 0 ? parseFloat(maxSpeedMbps) : 100,
       ipChangeDelaySec: parseFloat(ipChangeDelaySec) >= 0 ? parseFloat(ipChangeDelaySec) : 0,
-      rotationMinutes: parseFloat(rotationMinutes) > 0 ? parseFloat(rotationMinutes) : 30
+      rotationMinutes: parseFloat(rotationMinutes) > 0 ? parseFloat(rotationMinutes) : 30,
+      durationDays: parseFloat(durationDays) > 0 ? parseFloat(durationDays) : 7
     });
     dbInstance.log('info', 'proxy', `Admin added proxy to inventory: ${ip}:${port}`);
     res.json({ proxy });
@@ -1091,7 +1092,7 @@ app.post('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res
 // Admin updates proxy status (enable/disable)
 app.put('/api/admin/mobile-proxies/:proxyId', authenticateToken, requireAdmin, (req, res) => {
   const { proxyId } = req.params;
-  const { status, ip, port, username, password, planName, countryCode, priceUsd, operator, poolSize, maxSpeedMbps, ipChangeDelaySec, rotationMinutes } = req.body;
+  const { status, ip, port, username, password, planName, countryCode, priceUsd, operator, poolSize, maxSpeedMbps, ipChangeDelaySec, rotationMinutes, durationDays } = req.body;
   const proxy = dbInstance.getMobileProxyById(proxyId);
 
   if (!proxy) {
@@ -1117,6 +1118,7 @@ app.put('/api/admin/mobile-proxies/:proxyId', authenticateToken, requireAdmin, (
   if (maxSpeedMbps !== undefined) updates.maxSpeedMbps = parseFloat(maxSpeedMbps) > 0 ? parseFloat(maxSpeedMbps) : 100;
   if (ipChangeDelaySec !== undefined) updates.ipChangeDelaySec = parseFloat(ipChangeDelaySec) >= 0 ? parseFloat(ipChangeDelaySec) : 0;
   if (rotationMinutes !== undefined) updates.rotationMinutes = parseFloat(rotationMinutes) > 0 ? parseFloat(rotationMinutes) : 30;
+  if (durationDays !== undefined) updates.durationDays = parseFloat(durationDays) > 0 ? parseFloat(durationDays) : 7;
 
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ error: 'No fields to update.' });

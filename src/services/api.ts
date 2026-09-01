@@ -277,7 +277,7 @@ export const api = {
 
   // Mobile proxies (manual admin-managed pool)
   mobile: {
-    async getPlans(): Promise<{ configured: boolean; plans: { planName: string; countryCode: string; priceUsd: number; availableCount: number; operator?: string; poolSize?: string; maxSpeedMbps?: number; ipChangeDelaySec?: number; rotationMinutes?: number }[] }> {
+    async getPlans(): Promise<{ configured: boolean; plans: { planName: string; countryCode: string; priceUsd: number; availableCount: number; operator?: string; poolSize?: string; maxSpeedMbps?: number; ipChangeDelaySec?: number; rotationMinutes?: number; durationDays?: number }[] }> {
       const res = await fetch(`${API_BASE}/api/mobile/plans`, { headers: getHeaders() });
       if (!res.ok) throw new Error('Failed to load mobile plans');
       return res.json();
@@ -563,7 +563,7 @@ export const api = {
       return data.proxies || [];
     },
 
-    async addMobileProxy(proxy: { ip: string; port: string; username: string; password: string; planName: string; countryCode: string; priceUsd: number; operator?: string; poolSize?: string; maxSpeedMbps?: number; ipChangeDelaySec?: number; rotationMinutes?: number }): Promise<any> {
+    async addMobileProxy(proxy: { ip: string; port: string; username: string; password: string; planName: string; countryCode: string; priceUsd: number; operator?: string; poolSize?: string; maxSpeedMbps?: number; ipChangeDelaySec?: number; rotationMinutes?: number; durationDays?: number }): Promise<any> {
       const res = await fetch(`${API_BASE}/api/admin/mobile-proxies`, {
         method: 'POST',
         headers: getHeaders(),
@@ -588,7 +588,7 @@ export const api = {
       return true;
     },
 
-    async updateMobileProxy(proxyId: string, updates: Partial<{ ip: string; port: string; username: string; password: string; planName: string; countryCode: string; priceUsd: number; status: string; operator: string; poolSize: string; maxSpeedMbps: number; ipChangeDelaySec: number; rotationMinutes: number }>): Promise<any> {
+    async updateMobileProxy(proxyId: string, updates: Partial<{ ip: string; port: string; username: string; password: string; planName: string; countryCode: string; priceUsd: number; status: string; operator: string; poolSize: string; maxSpeedMbps: number; ipChangeDelaySec: number; rotationMinutes: number; durationDays: number }>): Promise<any> {
       const res = await fetch(`${API_BASE}/api/admin/mobile-proxies/${proxyId}`, {
         method: 'PUT',
         headers: getHeaders(),

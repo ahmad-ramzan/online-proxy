@@ -38,6 +38,7 @@ export interface MobileProxy {
   maxSpeedMbps?: number;   // e.g. 115
   ipChangeDelaySec?: number; // e.g. 0
   rotationMinutes?: number;  // e.g. 30
+  durationDays?: number;     // plan length in days, e.g. 7
 }
 
 // A buyable "plan" — the available pool grouped by planName + countryCode.
@@ -51,6 +52,7 @@ export interface MobilePlanGroup {
   maxSpeedMbps?: number;
   ipChangeDelaySec?: number;
   rotationMinutes?: number;
+  durationDays?: number;
 }
 
 export interface MobileProxyOrder {

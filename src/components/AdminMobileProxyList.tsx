@@ -26,7 +26,8 @@ export default function AdminMobileProxyList() {
     poolSize: '',
     maxSpeedMbps: 0,
     ipChangeDelaySec: 0,
-    rotationMinutes: 0
+    rotationMinutes: 0,
+    durationDays: 0
   });
   const [quickPaste, setQuickPaste] = useState('');
   const [quickPasteError, setQuickPasteError] = useState('');
@@ -64,7 +65,7 @@ export default function AdminMobileProxyList() {
   };
 
   const resetForm = () => {
-    setFormData({ ip: '', port: '', username: '', password: '', planName: '', countryCode: '', priceUsd: 0, operator: '', poolSize: '', maxSpeedMbps: 0, ipChangeDelaySec: 0, rotationMinutes: 0 });
+    setFormData({ ip: '', port: '', username: '', password: '', planName: '', countryCode: '', priceUsd: 0, operator: '', poolSize: '', maxSpeedMbps: 0, ipChangeDelaySec: 0, rotationMinutes: 0, durationDays: 0 });
     setQuickPaste('');
     setQuickPasteError('');
     setEditingId(null);
@@ -92,7 +93,8 @@ export default function AdminMobileProxyList() {
       poolSize: formData.poolSize,
       maxSpeedMbps: formData.maxSpeedMbps,
       ipChangeDelaySec: formData.ipChangeDelaySec,
-      rotationMinutes: formData.rotationMinutes
+      rotationMinutes: formData.rotationMinutes,
+      durationDays: formData.durationDays
     };
 
     try {
@@ -126,7 +128,8 @@ export default function AdminMobileProxyList() {
       poolSize: proxy.poolSize || '',
       maxSpeedMbps: proxy.maxSpeedMbps || 0,
       ipChangeDelaySec: proxy.ipChangeDelaySec || 0,
-      rotationMinutes: proxy.rotationMinutes || 0
+      rotationMinutes: proxy.rotationMinutes || 0,
+      durationDays: proxy.durationDays || 0
     });
     setQuickPaste('');
     setQuickPasteError('');
@@ -277,6 +280,13 @@ export default function AdminMobileProxyList() {
               placeholder="IP Rotation (minutes)"
               value={formData.rotationMinutes || ''}
               onChange={(e) => setFormData({ ...formData, rotationMinutes: parseFloat(e.target.value) || 0 })}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+            />
+            <input
+              type="number"
+              placeholder="Plan Duration (days)"
+              value={formData.durationDays || ''}
+              onChange={(e) => setFormData({ ...formData, durationDays: parseFloat(e.target.value) || 0 })}
               className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
             />
           </div>
