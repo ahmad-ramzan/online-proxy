@@ -148,36 +148,38 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
             return (
               <div key={`${plan.planName}::${plan.countryCode}`} className="bg-slate-950/60 border border-slate-850 hover:border-violet-500/40 rounded-2xl p-5 flex flex-col justify-between transition-colors">
                 <div>
-                  <div className="flex items-center gap-2.5 border-b border-slate-850 pb-3 mb-3">
-                    <span className="text-4xl">{flagEmoji(plan.countryCode)}</span>
-                    <p className="text-sm font-bold text-white leading-snug">{plan.planName}</p>
+                  <div className="flex items-center gap-3 border-b border-slate-850 pb-3 mb-3">
+                    <span className="text-5xl leading-none">{flagEmoji(plan.countryCode)}</span>
+                    <div>
+                      <p className="text-base font-bold text-white leading-snug">{plan.planName}</p>
+                      {!inStock && <p className="text-sm font-semibold text-red-400 mt-0.5">Unavailable, please contact support</p>}
+                    </div>
                   </div>
-                  <div className="flex justify-between gap-4 text-[11px]">
-                    <div className="space-y-1.5">
+                  <div className="flex justify-between gap-4 text-sm">
+                    <div className="space-y-2">
                       <div><span className="text-slate-500">Country:</span> <span className="text-slate-200 font-semibold">{countryName(plan.countryCode)}</span></div>
                       {plan.operator && <div><span className="text-slate-500">Operator:</span> <span className="text-slate-200 font-semibold">{plan.operator}</span></div>}
                       <div><span className="text-slate-500">Type:</span> <span className="text-slate-200 font-semibold">Private</span></div>
                       {!!plan.durationDays && <div><span className="text-slate-500">Duration:</span> <span className="text-slate-200 font-semibold">{plan.durationDays} {plan.durationDays === 1 ? 'Day' : 'Days'}</span></div>}
                     </div>
-                    <div className="space-y-1.5 text-right">
+                    <div className="space-y-2 text-right">
                       {plan.poolSize && <div><span className="text-slate-500">IP Pool Size:</span> <span className="text-slate-200 font-semibold">{plan.poolSize}</span></div>}
                       {!!plan.maxSpeedMbps && <div><span className="text-slate-500">Max Speed:</span> <span className="text-slate-200 font-semibold">{plan.maxSpeedMbps} mbit/s</span></div>}
                       {plan.ipChangeDelaySec !== undefined && <div><span className="text-slate-500">IP Change Delay:</span> <span className="text-slate-200 font-semibold">{plan.ipChangeDelaySec}s</span></div>}
                       {!!plan.rotationMinutes && <div><span className="text-slate-500">IP Rotation:</span> <span className="text-slate-200 font-semibold">{plan.rotationMinutes} min</span></div>}
                       <div className="flex items-center justify-end gap-1.5">
                         <span className="text-slate-500">Stock:</span>
-                        <span className={`w-2 h-2 rounded-full ${inStock ? 'bg-green-500' : 'bg-red-500'}`}></span>
                         <span className={inStock ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{inStock ? `${plan.availableCount} available` : 'out of stock'}</span>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-4">
-                  <span className="text-xl font-black text-white">${plan.priceUsd.toFixed(2)}</span>
+                  <span className="text-2xl font-black text-white">${plan.priceUsd.toFixed(2)}</span>
                   <button
                     onClick={() => buy(plan)}
                     disabled={!inStock}
-                    className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-50 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:brightness-110 disabled:opacity-50 rounded-xl text-sm font-bold text-white flex items-center gap-1.5 cursor-pointer"
                   >
                     <Zap className="w-4 h-4" />
                     {!inStock ? 'Out of stock' : 'Buy Now'}
