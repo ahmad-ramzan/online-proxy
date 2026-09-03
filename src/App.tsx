@@ -296,6 +296,23 @@ export default function App() {
     }
   }, [user?.id]);
 
+  // Keep wallet balance/due fresh without a manual reload: an admin can
+  // change these from a separate session while the customer's tab stays
+  // open, so re-pull whenever the tab regains focus, plus a periodic
+  // fallback poll.
+  useEffect(() => {
+    if (!user) return;
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshWallet(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    const interval = setInterval(refreshWallet, 60000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      clearInterval(interval);
+    };
+  }, [user?.id]);
+
   // Action: Standard Email/Password Auth Login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
