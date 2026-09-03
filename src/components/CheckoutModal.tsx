@@ -15,12 +15,13 @@ interface CheckoutModalProps {
   walletBalance?: number;
   subtitle?: string;
   allowCoupon?: boolean;
+  proxyType?: 'residential' | 'mobile';
   onWalletPay?: (couponCode: string) => void;
   onClose: () => void;
   onProceed: (couponCode: string, gateway: 'credit_card' | 'paystation' | 'cryptomus', phone: string) => void;
 }
 
-export default function CheckoutModal({ pkg, loading, showZinipay = false, walletBalance = 0, subtitle, allowCoupon = true, onWalletPay, onClose, onProceed }: CheckoutModalProps) {
+export default function CheckoutModal({ pkg, loading, showZinipay = false, walletBalance = 0, subtitle, allowCoupon = true, proxyType, onWalletPay, onClose, onProceed }: CheckoutModalProps) {
   const [code, setCode] = useState('');
   const [checking, setChecking] = useState(false);
   const [applied, setApplied] = useState<{ valid: boolean; finalUsd?: number; discountUsd?: number; message: string } | null>(null);
@@ -32,7 +33,7 @@ export default function CheckoutModal({ pkg, loading, showZinipay = false, walle
     if (!c) { setApplied(null); return; }
     setChecking(true);
     try {
-      const r = await api.payment.validateCoupon(c, pkg.id, pkg.priceUsd);
+      const r = await api.payment.validateCoupon(c, pkg.id, pkg.priceUsd, proxyType);
       setApplied({ valid: r.valid, finalUsd: r.finalUsd, discountUsd: r.discountUsd, message: r.message });
     } catch (e: any) {
       setApplied({ valid: false, message: e.message || 'Could not validate coupon.' });

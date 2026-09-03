@@ -722,7 +722,7 @@ app.get('/api/mobile/my', authenticateToken, (req, res) => {
 // Order a mobile proxy, paying from the wallet balance. Assigns immediately
 // from the admin's manual pool.
 app.post('/api/mobile/order', authenticateToken, async (req, res) => {
-  const { planName, countryCode } = req.body;
+  const { planName, countryCode, couponCode } = req.body;
   if (!planName || !countryCode) {
     return res.status(400).json({ error: 'planName and countryCode are required.' });
   }
@@ -733,14 +733,22 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'This plan is out of stock right now.' });
     }
 
-    const debit = dbInstance.debitWallet(req.user!.id, group.priceUsd, `Mobile proxy: ${planName} (${countryCode})`);
+    const couponEval = PaymentService.evaluateCoupon(group.priceUsd, couponCode, 'mobile');
+    if (couponEval.error) return res.status(400).json({ error: couponEval.error });
+    const priceUsd = couponEval.finalUsd;
+
+    const debit = dbInstance.debitWallet(req.user!.id, priceUsd, `Mobile proxy: ${planName} (${countryCode})`);
     if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
 
     const proxy = dbInstance.assignAvailableMobileProxy(req.user!.id, planName, countryCode);
     if (!proxy) {
       // Stock ran out between the check and the debit (rare race) — refund.
-      dbInstance.creditWallet(req.user!.id, group.priceUsd, `Refund: ${planName} (${countryCode}) out of stock`);
+      dbInstance.creditWallet(req.user!.id, priceUsd, `Refund: ${planName} (${countryCode}) out of stock`);
       return res.status(400).json({ error: 'This plan just sold out. You have been refunded to your wallet.' });
+    }
+    if (couponEval.couponCode) {
+      const coupon = dbInstance.findCouponByCode(couponEval.couponCode);
+      if (coupon) dbInstance.updateCoupon(coupon.id, { usedCount: coupon.usedCount + 1 });
     }
     dbInstance.log('info', 'proxy', `Mobile proxy assigned from wallet purchase: ${planName} (${countryCode}) to user ${req.user!.id}`);
     res.json({ proxy });
@@ -753,7 +761,7 @@ app.post('/api/mobile/order', authenticateToken, async (req, res) => {
 
 // Buy a mobile proxy via a payment gateway (checkout, like residential).
 app.post('/api/mobile/checkout', authenticateToken, async (req, res) => {
-  const { planName, countryCode, gateway, custPhone } = req.body;
+  const { planName, countryCode, gateway, custPhone, couponCode } = req.body;
   if (!planName || !countryCode || !gateway) {
     return res.status(400).json({ error: 'planName, countryCode and gateway are required.' });
   }
@@ -764,7 +772,8 @@ app.post('/api/mobile/checkout', authenticateToken, async (req, res) => {
     const session = await PaymentService.createMobileCheckoutSession({
       userId: req.user!.id, userEmail: req.user!.email,
       planName, countryCode, gateway,
-      appUrl: publicBaseUrl(req), custPhone: custPhone ? String(custPhone) : undefined
+      appUrl: publicBaseUrl(req), custPhone: custPhone ? String(custPhone) : undefined,
+      couponCode: couponCode ? String(couponCode) : undefined
     });
     res.json(session);
   } catch (error: any) {

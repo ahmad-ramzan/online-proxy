@@ -453,18 +453,24 @@ export class PaymentService {
    */
   public static async createMobileCheckoutSession(params: {
     userId: string; userEmail: string; planName: string; countryCode: string;
-    gateway: 'credit_card' | 'paystation' | 'cryptomus'; appUrl: string; custPhone?: string;
+    gateway: 'credit_card' | 'paystation' | 'cryptomus'; appUrl: string; custPhone?: string; couponCode?: string;
   }): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
     const group = dbInstance.getMobilePlanGroups().find(g => g.planName === params.planName && g.countryCode === params.countryCode);
     if (!group || group.availableCount <= 0) throw new Error('This plan is out of stock right now.');
-    const amountUsd = group.priceUsd;
+
+    const couponEval = this.evaluateCoupon(group.priceUsd, params.couponCode, 'mobile');
+    if (couponEval.error) throw new Error(couponEval.error);
+    const amountUsd = couponEval.finalUsd;
 
     const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     dbInstance.insertTransaction({
       id: txnId, userId: params.userId, userEmail: params.userEmail, orderId: '',
       amountUsd, gateway: params.gateway, status: 'pending', createdAt: new Date().toISOString(),
-      purpose: 'mobile', mobilePlanName: params.planName, mobileCountryCode: params.countryCode
+      purpose: 'mobile', mobilePlanName: params.planName, mobileCountryCode: params.countryCode,
+      couponCode: couponEval.couponCode, discountUsd: couponEval.discountUsd || undefined
     });
+    // Coupon usage is counted on successful payment completion (see
+    // completePaymentTransaction), not here at checkout-session creation.
 
     // --- ZiniPay ---
     if (params.gateway === 'credit_card' && ZiniPayService.isConfigured()) {
@@ -728,6 +734,11 @@ export class PaymentService {
         await this.provisionMobileForTxn(txn);
       } catch (e: any) {
         db.log('error', 'proxy', `Mobile proxy provision failed after payment (txn ${txn.id}): ${e.message}`);
+      }
+      // Count coupon usage on successful completion (matches the residential flow).
+      if (txn.couponCode) {
+        const coupon = db.findCouponByCode(txn.couponCode);
+        if (coupon) db.updateCoupon(coupon.id, { usedCount: coupon.usedCount + 1 });
       }
       return true;
     }

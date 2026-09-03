@@ -1857,6 +1857,7 @@ export default function App() {
           pkg={checkoutPkg}
           loading={actionLoading}
           showZinipay={zinipayEnabled}
+          proxyType="residential"
           onClose={() => setCheckoutPkg(null)}
           walletBalance={walletBalance}
           onWalletPay={async (couponCode) => {
@@ -1889,14 +1890,15 @@ export default function App() {
           subtitle={mobileCheckout.subtitle}
           loading={actionLoading}
           showZinipay={zinipayEnabled}
+          proxyType="mobile"
           onClose={() => setMobileCheckout(null)}
           walletBalance={walletBalance}
-          onWalletPay={async () => {
+          onWalletPay={async (couponCode) => {
             const mc = mobileCheckout;
             if (!mc) return;
             setActionLoading(true);
             try {
-              await api.mobile.order(mc.planName, mc.countryCode);
+              await api.mobile.order(mc.planName, mc.countryCode, couponCode || undefined);
               setMobileCheckout(null);
               await syncLedgerData();
               await refreshWallet();
@@ -1907,12 +1909,12 @@ export default function App() {
               setActionLoading(false);
             }
           }}
-          onProceed={async (_couponCode, gateway, phone) => {
+          onProceed={async (couponCode, gateway, phone) => {
             const mc = mobileCheckout;
             if (!mc) return;
             setActionLoading(true);
             try {
-              const res = await api.mobile.checkout(mc.planName, mc.countryCode, gateway, phone);
+              const res = await api.mobile.checkout(mc.planName, mc.countryCode, gateway, phone, couponCode || undefined);
               if (res?.checkoutUrl) {
                 window.location.href = res.checkoutUrl;
               } else {
