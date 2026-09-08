@@ -519,6 +519,78 @@ export class PaymentService {
     throw new Error('This payment method is not available right now.');
   }
 
+  /**
+   * Starts a MOBILE PRE-ORDER payment: pays into an admin-defined slot
+   * (country + carrier + duration + price), independent of whether a
+   * matching physical proxy exists in the pool yet. On completion the slot's
+   * remainingSlots is decremented and a pending MobileProxyOrder is created
+   * for the admin to manually fulfill from inventory later — this never
+   * touches the instant-buy mobile flow.
+   */
+  public static async createMobilePreOrderCheckoutSession(params: {
+    userId: string; userEmail: string; slotId: string;
+    gateway: 'credit_card' | 'paystation' | 'cryptomus'; appUrl: string; custPhone?: string;
+  }): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
+    const slot = dbInstance.getMobilePreOrderSlotById(params.slotId);
+    if (!slot || slot.status !== 'open' || slot.remainingSlots <= 0) {
+      throw new Error('This pre-order slot is no longer available.');
+    }
+    const amountUsd = slot.priceUsd;
+
+    const txnId = `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    dbInstance.insertTransaction({
+      id: txnId, userId: params.userId, userEmail: params.userEmail, orderId: '',
+      amountUsd, gateway: params.gateway, status: 'pending', createdAt: new Date().toISOString(),
+      purpose: 'mobile-preorder', mobilePreOrderSlotId: slot.id
+    });
+
+    // --- ZiniPay ---
+    if (params.gateway === 'credit_card' && ZiniPayService.isConfigured()) {
+      const invoice = await ZiniPayService.createInvoice({
+        name: params.userEmail.split('@')[0] || 'Customer', email: params.userEmail,
+        amountBdt: ZiniPayService.usdToBdt(amountUsd),
+        redirectUrl: `${params.appUrl}/api/payment/zinipay/return/${txnId}`,
+        cancelUrl: `${params.appUrl}/api/payment/zinipay/cancel/${txnId}`,
+        webhookUrl: `${params.appUrl}/api/payment/zinipay/webhook`,
+        metadata: { txnId, purpose: 'mobile-preorder' }
+      });
+      if (invoice.ok && invoice.paymentUrl) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: invoice.invoiceId });
+        return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'ZiniPay checkout could not be created.');
+    }
+    // --- PayStation ---
+    if (params.gateway === 'paystation' && PayStationService.isConfigured()) {
+      const invoice = await PayStationService.createInvoice({
+        invoiceNumber: txnId, name: params.userEmail.split('@')[0] || 'Customer',
+        phone: (params.custPhone || '').trim() || '01700000000', email: params.userEmail,
+        address: 'Bangladesh', amountBdt: PayStationService.usdToBdt(amountUsd),
+        reference: 'mobile-preorder', callbackUrl: `${params.appUrl}/api/payment/paystation/callback`
+      });
+      if (invoice.ok && invoice.paymentUrl) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId });
+        return { checkoutUrl: invoice.paymentUrl, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'PayStation checkout could not be created.');
+    }
+    // --- Cryptomus ---
+    if (params.gateway === 'cryptomus' && CryptomusService.isConfigured()) {
+      const invoice = await CryptomusService.createInvoice({
+        orderId: txnId, amountUsd,
+        callbackUrl: `${params.appUrl}/api/payment/cryptomus/callback`,
+        returnUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`,
+        successUrl: `${params.appUrl}/api/payment/cryptomus/return/${txnId}`
+      });
+      if (invoice.ok && invoice.url) {
+        dbInstance.updateTransaction(txnId, { providerInvoiceId: txnId, providerTxnId: invoice.uuid });
+        return { checkoutUrl: invoice.url, transactionId: txnId, external: true };
+      }
+      throw new Error(invoice.message || 'Cryptomus checkout could not be created.');
+    }
+    throw new Error('This payment method is not available right now.');
+  }
+
   /** Provision a paid mobile proxy: assign one from the admin's manual pool. */
   private static async provisionMobileForTxn(txn: PaymentTransaction): Promise<void> {
     if (!txn.mobilePlanName) return;
@@ -739,6 +811,32 @@ export class PaymentService {
       if (txn.couponCode) {
         const coupon = db.findCouponByCode(txn.couponCode);
         if (coupon) db.updateCoupon(coupon.id, { usedCount: coupon.usedCount + 1 });
+      }
+      return true;
+    }
+
+    // Mobile pre-order: claim the slot and create a pending order for the
+    // admin to manually fulfill from inventory (never auto-assigned).
+    if (txn.purpose === 'mobile-preorder') {
+      db.updateTransaction(txn.id, { status: 'completed' });
+      const slot = txn.mobilePreOrderSlotId ? db.getMobilePreOrderSlotById(txn.mobilePreOrderSlotId) : undefined;
+      if (slot) {
+        db.decrementMobilePreOrderSlot(slot.id);
+        db.insertMobileProxyOrder({
+          id: `mo_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          userId: txn.userId,
+          planName: `${slot.carrier} ${slot.durationDays}-Day Mobile Proxy`,
+          countryCode: slot.countryCode,
+          priceUsd: txn.amountUsd,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          preOrderSlotId: slot.id,
+          carrier: slot.carrier,
+          durationDays: slot.durationDays
+        });
+        db.log('info', 'proxy', `Mobile pre-order paid: ${slot.carrier} ${slot.countryCode} for user ${txn.userId} — awaiting admin assignment.`);
+      } else {
+        db.log('error', 'proxy', `Mobile pre-order payment completed (txn ${txn.id}) but slot ${txn.mobilePreOrderSlotId} no longer exists.`);
       }
       return true;
     }

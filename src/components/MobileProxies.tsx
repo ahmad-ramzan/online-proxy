@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Trash2, Loader2, Copy, Check, Zap, Wallet, ShoppingBag } from 'lucide-react';
+import { Smartphone, Trash2, Loader2, Copy, Check, Zap, Wallet, ShoppingBag, PackageSearch, Clock } from 'lucide-react';
 import { api } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
 import FlagIcon from './FlagIcon';
@@ -22,11 +22,21 @@ interface MobilePlanGroup {
   durationDays?: number;
 }
 
+interface PreOrderSlot {
+  id: string;
+  countryCode: string;
+  carrier: string;
+  durationDays: number;
+  priceUsd: number;
+  remainingSlots: number;
+}
+
 interface MobileProxiesProps {
   walletBalance: number;
   onBalanceChange: () => void;
   onTopUp: (amount?: number) => void;
   onCheckout: (planName: string, countryCode: string, subtitle: string, priceUsd: number) => void;
+  onPreOrderCheckout: (slotId: string, subtitle: string, priceUsd: number) => void;
 }
 
 const flagEmoji = (code: string) => {
@@ -42,9 +52,11 @@ const countryName = (code: string) => {
   try { return countryDisplayNames?.of(code.toUpperCase()) || code; } catch { return code; }
 };
 
-export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: MobileProxiesProps) {
+export default function MobileProxies({ walletBalance, onTopUp, onCheckout, onPreOrderCheckout }: MobileProxiesProps) {
   const [plans, setPlans] = useState<MobilePlanGroup[]>([]);
   const [mine, setMine] = useState<any[]>([]);
+  const [preOrderSlots, setPreOrderSlots] = useState<PreOrderSlot[]>([]);
+  const [myPreOrders, setMyPreOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [country, setCountry] = useState('ALL');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -53,9 +65,15 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
 
   const load = async () => {
     try {
-      const [p, m] = await Promise.all([api.mobile.getPlans(), api.mobile.getMy()]);
+      const [p, m, ps, mp] = await Promise.all([
+        api.mobile.getPlans(), api.mobile.getMy(),
+        api.mobile.getPreOrderSlots().catch(() => []),
+        api.mobile.getMyPreOrders().catch(() => [])
+      ]);
       setPlans(p.plans || []);
       setMine(m || []);
+      setPreOrderSlots(ps || []);
+      setMyPreOrders(mp || []);
     } catch (e: any) {
       setError(e.message || 'Could not load mobile proxies.');
     } finally {
@@ -70,6 +88,11 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
   plans.forEach((p) => { if (p.countryCode && !uniqCountries.includes(p.countryCode)) uniqCountries.push(p.countryCode); });
   const countries: string[] = ['ALL', ...uniqCountries];
   const shown = plans.filter(p => country === 'ALL' || p.countryCode === country);
+
+  const preOrder = (slot: PreOrderSlot) => {
+    const subtitle = `${flagEmoji(slot.countryCode)} ${slot.carrier} · ${slot.durationDays} Days Pre-Order (${slot.countryCode})`;
+    onPreOrderCheckout(slot.id, subtitle, slot.priceUsd);
+  };
 
   const buy = (plan: MobilePlanGroup) => {
     const subtitle = `${flagEmoji(plan.countryCode)} ${plan.planName} (${plan.countryCode})`;
@@ -92,6 +115,27 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
   return (
     <div className="space-y-8 animate-fade-in text-slate-200">
       {error && <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-semibold rounded-xl px-4 py-3">{error}</div>}
+
+      {/* My pending pre-orders */}
+      {myPreOrders.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><PackageSearch className="w-4 h-4 text-amber-400" /> My Pre-Orders</h3>
+          <div className="space-y-3">
+            {myPreOrders.map((o) => (
+              <div key={o.id} className="bg-slate-900/50 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-3">
+                <FlagIcon code={o.countryCode} className="w-10 h-7 rounded" />
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-white">{o.carrier} · {o.durationDays} Days</p>
+                  <p className="text-[11px] text-slate-500">Ordered {new Date(o.createdAt).toLocaleDateString()} · ${o.priceUsd.toFixed(2)}</p>
+                </div>
+                <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400 uppercase px-2.5 py-1 bg-amber-500/10 rounded-full">
+                  <Clock className="w-3 h-3" /> Waiting for Proxy Assignment
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* My mobile proxies */}
       {mine.length > 0 && (
@@ -192,6 +236,42 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout }: Mo
         </div>
         {shown.length === 0 && <p className="text-center text-slate-500 text-xs py-8">No plans available right now. Please check back soon.</p>}
       </div>
+
+      {/* Pre-order a carrier/duration that isn't in stock yet */}
+      {preOrderSlots.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2"><PackageSearch className="w-4 h-4 text-amber-400" /> Pre-Order (Coming Soon Carriers)</h3>
+          <p className="text-[11px] text-slate-500 mb-4">Pay now to reserve a slot — we'll assign your proxy as soon as it's ready.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {preOrderSlots.map((slot) => (
+              <div key={slot.id} className="bg-slate-950/60 border border-amber-500/20 hover:border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between transition-colors">
+                <div>
+                  <div className="flex items-center gap-3 border-b border-slate-850 pb-3 mb-3">
+                    <FlagIcon code={slot.countryCode} className="w-14 h-10 rounded" />
+                    <div>
+                      <p className="text-base font-bold text-white leading-snug">{slot.carrier}</p>
+                      <p className="text-[11px] text-slate-500">{countryName(slot.countryCode)} · {slot.durationDays} Days</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Slots left:</span>
+                    <span className="text-amber-400 font-semibold">{slot.remainingSlots}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-4">
+                  <span className="text-2xl font-black text-white">${slot.priceUsd.toFixed(2)}</span>
+                  <button
+                    onClick={() => preOrder(slot)}
+                    className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 rounded-xl text-sm font-bold text-white flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PackageSearch className="w-4 h-4" /> Pre-Order Now
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

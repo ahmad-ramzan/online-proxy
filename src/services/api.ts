@@ -307,6 +307,35 @@ export const api = {
       const res = await fetch(`${API_BASE}/api/mobile/${id}`, { method: 'DELETE', headers: getHeaders() });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Delete failed'); }
       return res.json();
+    },
+
+    // Pre-orders: book a carrier/duration slot now, admin assigns a matching
+    // proxy from inventory later. Additive alongside the flow above.
+    async getPreOrderSlots(): Promise<{ id: string; countryCode: string; carrier: string; durationDays: number; priceUsd: number; totalSlots: number; remainingSlots: number; status: string }[]> {
+      const res = await fetch(`${API_BASE}/api/mobile/preorder-slots`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load pre-order slots');
+      return (await res.json()).slots;
+    },
+    async getMyPreOrders(): Promise<any[]> {
+      const res = await fetch(`${API_BASE}/api/mobile/my-preorders`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load pre-orders');
+      return (await res.json()).orders;
+    },
+    async preOrder(slotId: string): Promise<{ order: any }> {
+      const res = await fetch(`${API_BASE}/api/mobile/preorder`, {
+        method: 'POST', headers: getHeaders(),
+        body: JSON.stringify({ slotId })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Pre-order failed'); }
+      return res.json();
+    },
+    async preOrderCheckout(slotId: string, gateway: 'credit_card' | 'paystation' | 'cryptomus', custPhone?: string): Promise<{ checkoutUrl: string; transactionId: string; external?: boolean }> {
+      const res = await fetch(`${API_BASE}/api/mobile/preorder-checkout`, {
+        method: 'POST', headers: getHeaders(),
+        body: JSON.stringify({ slotId, gateway, custPhone })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Pre-order checkout failed'); }
+      return res.json();
     }
   },
 
@@ -554,6 +583,36 @@ export const api = {
         throw new Error(err.error || 'Failed to assign proxy');
       }
       return res.json();
+    },
+
+    async getMobilePreOrderSlots(): Promise<{ id: string; countryCode: string; carrier: string; durationDays: number; priceUsd: number; totalSlots: number; remainingSlots: number; status: string }[]> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-preorder-slots`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load pre-order slots');
+      return (await res.json()).slots;
+    },
+
+    async createMobilePreOrderSlot(slot: { countryCode: string; carrier: string; durationDays: number; priceUsd: number; totalSlots: number }): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-preorder-slots`, {
+        method: 'POST', headers: getHeaders(), body: JSON.stringify(slot)
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to create pre-order slot'); }
+      return res.json();
+    },
+
+    async updateMobilePreOrderSlot(id: string, updates: Partial<{ countryCode: string; carrier: string; durationDays: number; priceUsd: number; totalSlots: number; remainingSlots: number; status: 'open' | 'closed' }>): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-preorder-slots/${id}`, {
+        method: 'PUT', headers: getHeaders(), body: JSON.stringify(updates)
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to update pre-order slot'); }
+      return res.json();
+    },
+
+    async deleteMobilePreOrderSlot(id: string): Promise<boolean> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-preorder-slots/${id}`, {
+        method: 'DELETE', headers: getHeaders()
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to delete pre-order slot'); }
+      return true;
     },
 
     async getMobileProxies(): Promise<any[]> {

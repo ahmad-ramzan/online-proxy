@@ -65,6 +65,26 @@ export interface MobileProxyOrder {
   createdAt: string;
   assignedAt?: string;
   mobileProxyId?: string;  // reference to MobileProxy once assigned
+  // Set only when this order came from the Pre-Order flow (see MobilePreOrderSlot).
+  preOrderSlotId?: string;
+  carrier?: string;
+  durationDays?: number;
+}
+
+// Admin-defined "book now, proxy later" slot: sellable by country + carrier +
+// duration, independent of whether matching physical proxies exist yet in
+// the manual pool. A paid pre-order becomes a MobileProxyOrder (status
+// 'pending') that the admin manually fulfills from inventory.
+export interface MobilePreOrderSlot {
+  id: string;
+  countryCode: string;
+  carrier: string;        // ISP / Mobile Carrier, e.g. "T-Mobile"
+  durationDays: number;
+  priceUsd: number;
+  totalSlots: number;
+  remainingSlots: number;
+  status: 'open' | 'closed';
+  createdAt: string;
 }
 
 // One line in a user's wallet ledger (top-up credit or purchase debit).
@@ -193,9 +213,10 @@ export interface PaymentTransaction {
   // 'wallet' = a wallet top-up (credits balance, no order); 'mobile' = a mobile
   // proxy bought via a gateway from the manual admin-managed pool; 'clear-due' =
   // clearing due balance; default 'order'.
-  purpose?: 'order' | 'wallet' | 'mobile' | 'clear-due';
+  purpose?: 'order' | 'wallet' | 'mobile' | 'clear-due' | 'mobile-preorder';
   mobilePlanName?: string;
   mobileCountryCode?: string;
+  mobilePreOrderSlotId?: string;
 }
 
 // Discount coupons — admin creates, clients apply at checkout.

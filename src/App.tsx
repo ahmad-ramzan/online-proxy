@@ -70,6 +70,7 @@ export default function App() {
   // Checkout modal (coupon entry before payment)
   const [checkoutPkg, setCheckoutPkg] = useState<ProxyPackage | null>(null);
   const [mobileCheckout, setMobileCheckout] = useState<{ pkg: ProxyPackage; planName: string; countryCode: string; subtitle: string } | null>(null);
+  const [preOrderCheckout, setPreOrderCheckout] = useState<{ pkg: ProxyPackage; slotId: string; subtitle: string } | null>(null);
 
   // Mobile sidebar drawer (client dashboard portal)
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1435,6 +1436,12 @@ export default function App() {
                       planName, countryCode, subtitle
                     });
                   }}
+                  onPreOrderCheckout={(slotId: string, subtitle: string, priceUsd: number) => {
+                    setPreOrderCheckout({
+                      pkg: { id: `pre_${slotId}`, name: subtitle, bandwidthGb: 0, priceUsd, features: [], isActive: true },
+                      slotId, subtitle
+                    });
+                  }}
                 />
               )}
 
@@ -1915,6 +1922,51 @@ export default function App() {
             setActionLoading(true);
             try {
               const res = await api.mobile.checkout(mc.planName, mc.countryCode, gateway, phone, couponCode || undefined);
+              if (res?.checkoutUrl) {
+                window.location.href = res.checkoutUrl;
+              } else {
+                alert('Could not start checkout. Please try again.');
+              }
+            } catch (e: any) {
+              alert(e.message || 'Could not start checkout.');
+            } finally {
+              setActionLoading(false);
+            }
+          }}
+        />
+      )}
+
+      {preOrderCheckout && (
+        <CheckoutModal
+          pkg={preOrderCheckout.pkg}
+          subtitle={preOrderCheckout.subtitle}
+          loading={actionLoading}
+          showZinipay={zinipayEnabled}
+          allowCoupon={false}
+          onClose={() => setPreOrderCheckout(null)}
+          walletBalance={walletBalance}
+          onWalletPay={async () => {
+            const pc = preOrderCheckout;
+            if (!pc) return;
+            setActionLoading(true);
+            try {
+              await api.mobile.preOrder(pc.slotId);
+              setPreOrderCheckout(null);
+              await syncLedgerData();
+              await refreshWallet();
+              setCheckoutNotice({ type: 'success', text: 'Pre-order placed! We will assign your mobile proxy as soon as it is ready — check the Mobile Proxies tab.' });
+            } catch (e: any) {
+              alert(e.message || 'Wallet payment failed.');
+            } finally {
+              setActionLoading(false);
+            }
+          }}
+          onProceed={async (_couponCode, gateway, phone) => {
+            const pc = preOrderCheckout;
+            if (!pc) return;
+            setActionLoading(true);
+            try {
+              const res = await api.mobile.preOrderCheckout(pc.slotId, gateway, phone);
               if (res?.checkoutUrl) {
                 window.location.href = res.checkoutUrl;
               } else {

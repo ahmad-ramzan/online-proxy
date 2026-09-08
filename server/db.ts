@@ -8,7 +8,7 @@ import path from 'path';
 import {
   User, ProxyPackage, ProxyOrder, CreatedProxy,
   PaymentTransaction, SystemLog, CountryConfig,
-  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder, MobilePlanGroup, HostedIP, ClearDuePayment
+  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder, MobilePlanGroup, MobilePreOrderSlot, HostedIP, ClearDuePayment
 } from '../src/types';
 
 // JSON file "database". On a VPS this persists on disk across restarts.
@@ -33,6 +33,7 @@ interface DatabaseSchema {
   walletTransactions: WalletTransaction[];
   mobileProxies: MobileProxy[];
   mobileProxyOrders: MobileProxyOrder[];
+  mobilePreOrderSlots: MobilePreOrderSlot[];
   hostedIps: HostedIP[];
   clearDuePayments: ClearDuePayment[];
 }
@@ -76,6 +77,7 @@ const DEFAULT_DB: DatabaseSchema = {
   walletTransactions: [],
   mobileProxies: [],
   mobileProxyOrders: [],
+  mobilePreOrderSlots: [],
   hostedIps: [],
   clearDuePayments: [],
   logs: [
@@ -506,6 +508,58 @@ class Database {
     db.mobileProxies[idx] = { ...db.mobileProxies[idx], userId, status: 'active' };
     this.write(db);
     return db.mobileProxies[idx];
+  }
+
+  // --- MOBILE PRE-ORDER SLOTS (book now, admin fulfills later from inventory) ---
+
+  public getMobilePreOrderSlots(): MobilePreOrderSlot[] {
+    return this.read().mobilePreOrderSlots || [];
+  }
+
+  public getOpenMobilePreOrderSlots(): MobilePreOrderSlot[] {
+    return this.getMobilePreOrderSlots().filter(s => s.status === 'open' && s.remainingSlots > 0);
+  }
+
+  public getMobilePreOrderSlotById(id: string): MobilePreOrderSlot | undefined {
+    return this.getMobilePreOrderSlots().find(s => s.id === id);
+  }
+
+  public insertMobilePreOrderSlot(slot: MobilePreOrderSlot): MobilePreOrderSlot {
+    const db = this.read();
+    if (!db.mobilePreOrderSlots) db.mobilePreOrderSlots = [];
+    db.mobilePreOrderSlots.push(slot);
+    this.write(db);
+    return slot;
+  }
+
+  public updateMobilePreOrderSlot(id: string, updates: Partial<MobilePreOrderSlot>): MobilePreOrderSlot | null {
+    const db = this.read();
+    if (!db.mobilePreOrderSlots) db.mobilePreOrderSlots = [];
+    const idx = db.mobilePreOrderSlots.findIndex(s => s.id === id);
+    if (idx === -1) return null;
+    db.mobilePreOrderSlots[idx] = { ...db.mobilePreOrderSlots[idx], ...updates };
+    this.write(db);
+    return db.mobilePreOrderSlots[idx];
+  }
+
+  public deleteMobilePreOrderSlot(id: string): boolean {
+    const db = this.read();
+    if (!db.mobilePreOrderSlots) db.mobilePreOrderSlots = [];
+    const before = db.mobilePreOrderSlots.length;
+    db.mobilePreOrderSlots = db.mobilePreOrderSlots.filter(s => s.id !== id);
+    this.write(db);
+    return db.mobilePreOrderSlots.length < before;
+  }
+
+  /** Atomically claims one slot (decrements remainingSlots) if any are left. */
+  public decrementMobilePreOrderSlot(id: string): boolean {
+    const db = this.read();
+    if (!db.mobilePreOrderSlots) db.mobilePreOrderSlots = [];
+    const idx = db.mobilePreOrderSlots.findIndex(s => s.id === id);
+    if (idx === -1 || db.mobilePreOrderSlots[idx].remainingSlots <= 0) return false;
+    db.mobilePreOrderSlots[idx] = { ...db.mobilePreOrderSlots[idx], remainingSlots: db.mobilePreOrderSlots[idx].remainingSlots - 1 };
+    this.write(db);
+    return true;
   }
 
   // --- HOSTED IPs ---

@@ -7,11 +7,11 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, DollarSign, Database, Server, Settings, Terminal, Shield,
   Trash2, ToggleLeft, ToggleRight, Plus, Check, Edit2, ShieldAlert,
-  Loader2, Save, Globe, Lock, Code, Ticket, Receipt, Megaphone, Bell, Pin, X, HelpCircle, Smartphone
+  Loader2, Save, Globe, Lock, Code, Ticket, Receipt, Megaphone, Bell, Pin, X, HelpCircle, Smartphone, PackageSearch
 } from 'lucide-react';
 import { User, ProxyPackage, SystemLog, CountryConfig, Coupon, NoticePost, SupportTicket } from '../types';
 import { api } from '../services/api';
-import MobileProxyAdmin from './MobileProxyAdmin';
+import AdminPreOrderManagement from './AdminPreOrderManagement';
 import AdminMobileProxyList from './AdminMobileProxyList';
 import FlagIcon from './FlagIcon';
 
@@ -20,7 +20,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies' | 'hosted-ips'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies' | 'mobile-preorders' | 'hosted-ips'>('stats');
 
   // States loaded from backend
   const [metrics, setMetrics] = useState<any>(null);
@@ -471,6 +471,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           { id: 'notice', label: 'Notice Board', icon: <Megaphone className="w-4 h-4" /> },
           { id: 'support', label: 'Support Tickets', icon: <HelpCircle className="w-4 h-4" /> },
           { id: 'mobile-proxies', label: 'Mobile Proxies', icon: <Smartphone className="w-4 h-4" /> },
+          { id: 'mobile-preorders', label: 'Mobile Pre-Orders', icon: <PackageSearch className="w-4 h-4" /> },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1658,6 +1659,12 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         {activeTab === 'mobile-proxies' && (
           <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-8 animate-fade-in">
             <AdminMobileProxyList />
+          </div>
+        )}
+
+        {activeTab === 'mobile-preorders' && (
+          <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-8 animate-fade-in">
+            <AdminPreOrderManagement />
           </div>
         )}
 

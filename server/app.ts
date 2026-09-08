@@ -781,6 +781,81 @@ app.post('/api/mobile/checkout', authenticateToken, async (req, res) => {
   }
 });
 
+// --- MOBILE PRE-ORDERS (book a carrier now, admin assigns from inventory later) ---
+// Additive alongside the instant-buy mobile flow above — does not touch it.
+
+// Open pre-order slots (country + carrier + duration + price + remaining slots).
+app.get('/api/mobile/preorder-slots', authenticateToken, (req, res) => {
+  res.json({ slots: dbInstance.getOpenMobilePreOrderSlots() });
+});
+
+// The logged-in user's pending pre-orders (paid, awaiting admin assignment).
+app.get('/api/mobile/my-preorders', authenticateToken, (req, res) => {
+  const orders = dbInstance.getPendingMobileProxyOrders().filter(o => o.userId === req.user!.id && o.preOrderSlotId);
+  res.json({ orders });
+});
+
+// Pre-order a slot, paying from the wallet balance.
+app.post('/api/mobile/preorder', authenticateToken, async (req, res) => {
+  const { slotId } = req.body;
+  if (!slotId) return res.status(400).json({ error: 'slotId is required.' });
+  try {
+    const slot = dbInstance.getMobilePreOrderSlotById(slotId);
+    if (!slot || slot.status !== 'open' || slot.remainingSlots <= 0) {
+      return res.status(400).json({ error: 'This pre-order slot is no longer available.' });
+    }
+
+    const debit = dbInstance.debitWallet(req.user!.id, slot.priceUsd, `Mobile pre-order: ${slot.carrier} (${slot.countryCode})`);
+    if (!debit.ok) return res.status(400).json({ error: 'Insufficient wallet balance. Please top up first.' });
+
+    if (!dbInstance.decrementMobilePreOrderSlot(slot.id)) {
+      // Slot ran out between the check and the debit (rare race) — refund.
+      dbInstance.creditWallet(req.user!.id, slot.priceUsd, `Refund: ${slot.carrier} (${slot.countryCode}) pre-order slot sold out`);
+      return res.status(400).json({ error: 'This slot just sold out. You have been refunded to your wallet.' });
+    }
+
+    const order = dbInstance.insertMobileProxyOrder({
+      id: `mo_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId: req.user!.id,
+      planName: `${slot.carrier} ${slot.durationDays}-Day Mobile Proxy`,
+      countryCode: slot.countryCode,
+      priceUsd: slot.priceUsd,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      preOrderSlotId: slot.id,
+      carrier: slot.carrier,
+      durationDays: slot.durationDays
+    });
+    dbInstance.log('info', 'proxy', `Mobile pre-order placed from wallet: ${slot.carrier} (${slot.countryCode}) by user ${req.user!.id}`);
+    res.json({ order });
+  } catch (e: any) {
+    console.error('[/api/mobile/preorder] Error:', e.message || e);
+    dbInstance.log('error', 'proxy', `Mobile pre-order error: ${e.message}`);
+    res.status(500).json({ error: e.message || 'Mobile pre-order failed.' });
+  }
+});
+
+// Pre-order a slot via a payment gateway.
+app.post('/api/mobile/preorder-checkout', authenticateToken, async (req, res) => {
+  const { slotId, gateway, custPhone } = req.body;
+  if (!slotId || !gateway) {
+    return res.status(400).json({ error: 'slotId and gateway are required.' });
+  }
+  if (gateway === 'paystation' && !String(custPhone || '').trim()) {
+    return res.status(400).json({ error: 'A phone number is required for BDT Payment.' });
+  }
+  try {
+    const session = await PaymentService.createMobilePreOrderCheckoutSession({
+      userId: req.user!.id, userEmail: req.user!.email,
+      slotId, gateway,
+      appUrl: publicBaseUrl(req), custPhone: custPhone ? String(custPhone) : undefined
+    });
+    res.json(session);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Failed to start pre-order checkout.' });
+  }
+});
+
 // Release a mobile proxy (remove from user's list)
 app.delete('/api/mobile/:id', authenticateToken, (req, res) => {
   const mp = dbInstance.getMobileProxyById(req.params.id);
@@ -1050,6 +1125,63 @@ app.post('/api/admin/mobile-orders/:orderId/assign', authenticateToken, requireA
     console.error('[/api/admin/mobile-orders/:orderId/assign] Error:', e.message || e);
     res.status(500).json({ error: e.message || 'Failed to assign proxy.' });
   }
+});
+
+// --- ADMIN: MOBILE PRE-ORDER SLOTS ---
+
+app.get('/api/admin/mobile-preorder-slots', authenticateToken, requireAdmin, (req, res) => {
+  res.json({ slots: dbInstance.getMobilePreOrderSlots() });
+});
+
+app.post('/api/admin/mobile-preorder-slots', authenticateToken, requireAdmin, (req, res) => {
+  const { countryCode, carrier, durationDays, priceUsd, totalSlots } = req.body;
+  if (!countryCode || !carrier || !durationDays || priceUsd === undefined || !totalSlots) {
+    return res.status(400).json({ error: 'countryCode, carrier, durationDays, priceUsd and totalSlots are required.' });
+  }
+  const slots = Math.max(1, parseInt(totalSlots, 10) || 0);
+  const slot = dbInstance.insertMobilePreOrderSlot({
+    id: `pos_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    countryCode: String(countryCode),
+    carrier: String(carrier),
+    durationDays: parseFloat(durationDays) > 0 ? parseFloat(durationDays) : 30,
+    priceUsd: parseFloat(priceUsd) || 0,
+    totalSlots: slots,
+    remainingSlots: slots,
+    status: 'open',
+    createdAt: new Date().toISOString()
+  });
+  dbInstance.log('info', 'proxy', `Admin created mobile pre-order slot: ${carrier} ${countryCode} x${slots}`);
+  res.json({ slot });
+});
+
+app.put('/api/admin/mobile-preorder-slots/:id', authenticateToken, requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { countryCode, carrier, durationDays, priceUsd, totalSlots, remainingSlots, status } = req.body;
+  const slot = dbInstance.getMobilePreOrderSlotById(id);
+  if (!slot) return res.status(404).json({ error: 'Pre-order slot not found.' });
+
+  const updates: Record<string, any> = {};
+  if (countryCode !== undefined) updates.countryCode = String(countryCode);
+  if (carrier !== undefined) updates.carrier = String(carrier);
+  if (durationDays !== undefined) updates.durationDays = parseFloat(durationDays) > 0 ? parseFloat(durationDays) : slot.durationDays;
+  if (priceUsd !== undefined) updates.priceUsd = parseFloat(priceUsd) || 0;
+  if (totalSlots !== undefined) updates.totalSlots = Math.max(0, parseInt(totalSlots, 10) || 0);
+  if (remainingSlots !== undefined) updates.remainingSlots = Math.max(0, parseInt(remainingSlots, 10) || 0);
+  if (status !== undefined && ['open', 'closed'].includes(status)) updates.status = status;
+
+  if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No fields to update.' });
+
+  const updated = dbInstance.updateMobilePreOrderSlot(id, updates);
+  dbInstance.log('info', 'proxy', `Admin updated mobile pre-order slot ${id}.`);
+  res.json({ slot: updated });
+});
+
+app.delete('/api/admin/mobile-preorder-slots/:id', authenticateToken, requireAdmin, (req, res) => {
+  const { id } = req.params;
+  if (!dbInstance.getMobilePreOrderSlotById(id)) return res.status(404).json({ error: 'Pre-order slot not found.' });
+  dbInstance.deleteMobilePreOrderSlot(id);
+  dbInstance.log('info', 'proxy', `Admin deleted mobile pre-order slot ${id}.`);
+  res.json({ success: true });
 });
 
 // Admin lists all mobile proxies in inventory
