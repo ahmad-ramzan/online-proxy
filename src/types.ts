@@ -30,7 +30,8 @@ export interface MobileProxy {
   priceUsd: number;
   status: 'active' | 'expired' | 'available';  // available = in pool, active = assigned to user
   createdAt: string;
-  expiresAt?: string;      // when proxy expires
+  assignedAt?: string;     // when this proxy was assigned to its current owner
+  expiresAt?: string;      // when proxy expires (assignedAt + durationDays)
   // Display-only specs shown on the customer's plan card (admin-set, since
   // there's no live provider API to read these from).
   operator?: string;       // e.g. "T-Mobile"

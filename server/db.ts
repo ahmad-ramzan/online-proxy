@@ -505,7 +505,14 @@ class Database {
     if (!db.mobileProxies) db.mobileProxies = [];
     const idx = db.mobileProxies.findIndex(m => m.status === 'available' && m.planName === planName && m.countryCode === countryCode);
     if (idx === -1) return null;
-    db.mobileProxies[idx] = { ...db.mobileProxies[idx], userId, status: 'active' };
+    const proxy = db.mobileProxies[idx];
+    const days = proxy.durationDays && proxy.durationDays > 0 ? proxy.durationDays : 30;
+    const now = new Date();
+    db.mobileProxies[idx] = {
+      ...proxy, userId, status: 'active',
+      assignedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
+    };
     this.write(db);
     return db.mobileProxies[idx];
   }

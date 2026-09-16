@@ -8,6 +8,19 @@ import { Plus, Trash2, Edit2, Check, X, Server, Flag } from 'lucide-react';
 import { MobileProxy } from '../types';
 import { api } from '../services/api';
 
+// Computes a live Active/Expired badge (+ remaining days) from expiresAt,
+// rather than relying on a background job to flip the stored status.
+function proxyLifecycle(proxy: MobileProxy): { label: string; colorClass: string; remainingDaysText: string } {
+  if (proxy.status === 'available') return { label: 'Available', colorClass: 'bg-green-500/10 text-green-400', remainingDaysText: '—' };
+  if (!proxy.userId) return { label: proxy.status, colorClass: 'bg-slate-500/10 text-slate-400', remainingDaysText: '—' };
+  if (!proxy.expiresAt) return { label: 'Active', colorClass: 'bg-blue-500/10 text-blue-400', remainingDaysText: '—' };
+
+  const msLeft = new Date(proxy.expiresAt).getTime() - Date.now();
+  if (msLeft <= 0) return { label: 'Expired', colorClass: 'bg-red-500/10 text-red-400', remainingDaysText: '0 days' };
+  const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+  return { label: 'Active', colorClass: 'bg-blue-500/10 text-blue-400', remainingDaysText: `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}` };
+}
+
 export default function AdminMobileProxyList() {
   const [proxies, setProxies] = useState<MobileProxy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -319,6 +332,9 @@ export default function AdminMobileProxyList() {
               <th className="py-3 px-4">Plan</th>
               <th className="py-3 px-4">Country</th>
               <th className="py-3 px-4">Price</th>
+              <th className="py-3 px-4">Assigned To</th>
+              <th className="py-3 px-4">Start / Expiry</th>
+              <th className="py-3 px-4">Remaining</th>
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>
@@ -326,12 +342,14 @@ export default function AdminMobileProxyList() {
           <tbody className="divide-y divide-slate-850/60">
             {proxies.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-6 text-center text-slate-500">
+                <td colSpan={11} className="py-6 text-center text-slate-500">
                   No proxies. Add one to get started.
                 </td>
               </tr>
             ) : (
-              proxies.map((proxy) => (
+              proxies.map((proxy) => {
+                const life = proxyLifecycle(proxy);
+                return (
                 <tr key={proxy.id} className="hover:bg-slate-900/20">
                   <td className="py-3 px-4 font-mono text-white">{proxy.ip}</td>
                   <td className="py-3 px-4">{proxy.port}</td>
@@ -341,13 +359,19 @@ export default function AdminMobileProxyList() {
                     <span>{proxy.countryCode}</span>
                   </td>
                   <td className="py-3 px-4">${proxy.priceUsd.toFixed(2)}</td>
+                  <td className="py-3 px-4 font-mono text-slate-300">{(proxy as any).userEmail || '—'}</td>
+                  <td className="py-3 px-4 text-[10px] text-slate-400">
+                    {proxy.assignedAt ? (
+                      <>
+                        <div>{new Date(proxy.assignedAt).toLocaleDateString()}</div>
+                        <div>→ {proxy.expiresAt ? new Date(proxy.expiresAt).toLocaleDateString() : '—'}</div>
+                      </>
+                    ) : '—'}
+                  </td>
+                  <td className="py-3 px-4">{life.remainingDaysText}</td>
                   <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${
-                      proxy.status === 'available' ? 'bg-green-500/10 text-green-400' :
-                      proxy.status === 'assigned' ? 'bg-blue-500/10 text-blue-400' :
-                      'bg-slate-500/10 text-slate-400'
-                    }`}>
-                      {proxy.status}
+                    <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${life.colorClass}`}>
+                      {life.label}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right space-x-2">
@@ -372,7 +396,8 @@ export default function AdminMobileProxyList() {
                     </button>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

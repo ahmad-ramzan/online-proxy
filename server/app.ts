@@ -1106,10 +1106,15 @@ app.post('/api/admin/mobile-orders/:orderId/assign', authenticateToken, requireA
   if (proxy.status !== 'available') return res.status(400).json({ error: 'Proxy is not available.' });
 
   try {
-    // Update proxy: assign to user, change status to active
+    // Update proxy: assign to user, change status to active, start the clock
+    // on its plan duration (falls back to the order's duration for pre-orders).
+    const days = (proxy.durationDays && proxy.durationDays > 0) ? proxy.durationDays : (order.durationDays && order.durationDays > 0 ? order.durationDays : 30);
+    const now = new Date();
     dbInstance.updateMobileProxy(mobileProxyId, {
       userId: order.userId,
-      status: 'active'
+      status: 'active',
+      assignedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
     });
 
     // Update order: mark as assigned, link proxy
@@ -1187,7 +1192,11 @@ app.delete('/api/admin/mobile-preorder-slots/:id', authenticateToken, requireAdm
 // Admin lists all mobile proxies in inventory
 app.get('/api/admin/mobile-proxies', authenticateToken, requireAdmin, (req, res) => {
   try {
-    const proxies = dbInstance.getMobileProxies();
+    const users = dbInstance.getUsers();
+    const proxies = dbInstance.getMobileProxies().map(p => {
+      const user = p.userId ? users.find(u => u.id === p.userId) : undefined;
+      return { ...p, userEmail: user?.email || '', userName: user?.name || '' };
+    });
     res.json({ proxies });
   } catch (e: any) {
     res.status(500).json({ error: 'Failed to load proxies' });
