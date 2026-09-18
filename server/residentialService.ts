@@ -319,6 +319,16 @@ export class ResidentialService {
     const endpoint = useSubUser ? 'residentsubuser/list/add' : 'resident/list/add';
 
     if (apiKey) {
+      if (!useSubUser) {
+        dbInstance.log(
+          'error',
+          'proxy',
+          'Attempted to create proxy list on main reseller pool without sub-user packageKey. Operation blocked.'
+        );
+        throw new Error(
+          'Cannot create residential proxy: Customer bandwidth package is not properly configured. Please contact support.'
+        );
+      }
       try {
         const reqBody: any = {
           title: params.title,

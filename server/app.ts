@@ -565,6 +565,30 @@ app.post('/api/proxy/create', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'This order package is inactive, pending, or expired. Complete payment first.' });
   }
 
+  // Residential proxies MUST be provisioned under a customer sub-user package.
+  // If the order has no subUserPackageKey (or only a simulated one while live API key is set),
+  // perform Just-In-Time (JIT) recovery to allocate the sub-user before allowing proxy creation.
+  const apiSettings = dbInstance.getApiSettings();
+  const hasLiveApiKey = !!(apiSettings.residentialApiKey || '').trim();
+
+  if (type === 'residential' && hasLiveApiKey) {
+    if (!order.subUserPackageKey || order.subUserPackageKey.startsWith('sim_')) {
+      const recoveredKey = await PaymentService.ensureSubUserForOrder(order.id);
+      if (recoveredKey) {
+        order.subUserPackageKey = recoveredKey;
+      } else {
+        dbInstance.log(
+          'error',
+          'proxy',
+          `Proxy creation blocked: Order ${order.id} has no sub-user allocation and recovery failed.`
+        );
+        return res.status(503).json({
+          error: 'Your proxy bandwidth allocation is still initializing. Please wait a moment and try again.'
+        });
+      }
+    }
+  }
+
   // Don't hand out a new proxy on a package that has no bandwidth left — it
   // would immediately overshoot the limit the customer paid for.
   if (order.subUserPackageKey) {
@@ -1815,7 +1839,38 @@ const ENFORCE_INTERVAL_MS = 60 * 1000;
 // therefore computed from the order, so a "1 GB" plan stops at exactly 1000 MB.
 const BYTES_PER_GB = 1000 * 1000 * 1000;
 
+export async function repairMissingSubUsers(): Promise<{ repaired: number; failed: number }> {
+  const settings = dbInstance.getApiSettings();
+  if (!settings.residentialApiKey?.trim()) return { repaired: 0, failed: 0 };
+
+  const activeWithoutSub = dbInstance
+    .getOrders()
+    .filter(o => o.status === 'active' && (!o.subUserPackageKey || o.subUserPackageKey.startsWith('sim_')));
+
+  let repaired = 0;
+  let failed = 0;
+
+  for (const order of activeWithoutSub) {
+    try {
+      const key = await PaymentService.ensureSubUserForOrder(order.id);
+      if (key) {
+        repaired++;
+      } else {
+        failed++;
+      }
+    } catch {
+      failed++;
+    }
+  }
+
+  return { repaired, failed };
+}
+
 export async function enforceBandwidthLimits(): Promise<void> {
+  // 1. Auto-repair any active orders that missed their sub-user package
+  await repairMissingSubUsers().catch(() => {});
+
+  // 2. Read live usage from Proxy-Seller
   const { live, usage } = await ResidentialService.getSubUserUsage();
   // Never revoke on an unverified snapshot — a transient API failure must not
   // wipe out working proxies.
@@ -1828,6 +1883,13 @@ export async function enforceBandwidthLimits(): Promise<void> {
   for (const order of activeOrders) {
     const u = usage[order.subUserPackageKey!];
     if (!u) continue;
+
+    // Sync database bandwidthUsedGb so records match upstream live usage
+    const usedGb = Math.round((u.usedBytes / BYTES_PER_GB) * 1000) / 1000;
+    if (order.bandwidthUsedGb !== usedGb) {
+      dbInstance.updateOrder(order.id, { bandwidthUsedGb: usedGb });
+    }
+
     const limitBytes = Math.round(order.bandwidthGb * BYTES_PER_GB);
     if (u.usedBytes < limitBytes) continue;
 
@@ -1852,6 +1914,21 @@ export async function enforceBandwidthLimits(): Promise<void> {
     );
   }
 }
+
+// Admin endpoint to manually trigger repair of any active orders with missing sub-user packages
+app.post('/api/admin/repair-subusers', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await repairMissingSubUsers();
+    res.json({ ok: true, message: `Repaired ${result.repaired} orders, ${result.failed} failed.`, ...result });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to repair sub-user packages.' });
+  }
+});
+
+// Run an initial repair pass shortly after startup
+setTimeout(() => {
+  repairMissingSubUsers().catch(() => {});
+}, 5000);
 
 if (process.env.NODE_ENV === 'production') {
   setInterval(() => { enforceBandwidthLimits().catch(() => { /* logged inside */ }); }, ENFORCE_INTERVAL_MS);

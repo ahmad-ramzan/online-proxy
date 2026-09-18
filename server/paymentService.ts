@@ -665,14 +665,8 @@ export class PaymentService {
       if (coupon) dbInstance.updateCoupon(coupon.id, { usedCount: coupon.usedCount + 1 });
     }
 
-    // Reserve the customer's traffic on Proxy-Seller (decimal GB).
-    try {
-      const trafficBytes = Math.round(newOrder.bandwidthGb * 1000 * 1000 * 1000);
-      const sub = await ResidentialService.createSubUserPackage({ trafficBytes });
-      dbInstance.updateOrder(newOrder.id, { subUserPackageKey: sub.packageKey });
-    } catch (e) {
-      console.error('Failed to reserve sub-user allocation (wallet pay): ', e);
-    }
+    // Reserve the customer's traffic on Proxy-Seller (decimal GB) as a sub-user.
+    await this.ensureSubUserForOrder(newOrder.id);
     dbInstance.log('info', 'payment', `Order ${newOrder.id} paid from wallet ($${finalUsd}).`);
     return { ok: true, orderId: newOrder.id };
   }
@@ -863,23 +857,63 @@ export class PaymentService {
     // sub-user (per-customer isolated allocation). We do NOT auto-create a proxy —
     // the customer creates their own proxies (choosing geo/rotation) from the
     // Create Proxy page. This avoids unwanted auto-added proxies.
-    try {
-      const order = db.getOrders().find(o => o.id === txn.orderId);
-      if (order && !order.subUserPackageKey) {
-        // Reserve in decimal GB (1 GB = 1000 MB) to match what the customer buys.
-        const trafficBytes = Math.round(order.bandwidthGb * 1000 * 1000 * 1000);
-        const sub = await ResidentialService.createSubUserPackage({ trafficBytes });
-        db.updateOrder(order.id, { subUserPackageKey: sub.packageKey });
-        db.log(
-          'info',
-          'proxy',
-          `Reserved ${order.bandwidthGb}GB for order ${order.id} as sub-user ${sub.packageKey} (${sub.live ? 'live' : 'simulated'})`
-        );
-      }
-    } catch (e) {
-      console.error('Failed to reserve sub-user allocation: ', e);
-    }
+    await this.ensureSubUserForOrder(txn.orderId);
 
     return true;
+  }
+
+  /**
+   * Ensures that an order has a valid Proxy-Seller sub-user package key allocated.
+   * If missing or simulated while a live API key is present, creates one with retry logic.
+   * Returns the package key if successful, or null on failure.
+   */
+  public static async ensureSubUserForOrder(orderId: string): Promise<string | null> {
+    const db = dbInstance;
+    const order = db.getOrders().find(o => o.id === orderId);
+    if (!order) return null;
+
+    const settings = db.getApiSettings();
+    const hasLiveKey = !!(settings.residentialApiKey || '').trim();
+
+    // If already has a real key, return it
+    if (order.subUserPackageKey && !order.subUserPackageKey.startsWith('sim_')) {
+      return order.subUserPackageKey;
+    }
+
+    // In simulation mode (no API key configured), generate a simulated key if none exists
+    if (!hasLiveKey) {
+      if (!order.subUserPackageKey) {
+        const simKey = `sim_pkg_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        db.updateOrder(order.id, { subUserPackageKey: simKey });
+        return simKey;
+      }
+      return order.subUserPackageKey;
+    }
+
+    // LIVE MODE: create real sub-user on Proxy-Seller
+    const trafficBytes = Math.round(order.bandwidthGb * 1000 * 1000 * 1000);
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const sub = await ResidentialService.createSubUserPackage({ trafficBytes });
+        if (sub?.packageKey) {
+          db.updateOrder(order.id, { subUserPackageKey: sub.packageKey });
+          db.log(
+            'info',
+            'proxy',
+            `Reserved ${order.bandwidthGb}GB for order ${order.id} as sub-user ${sub.packageKey} (${sub.live ? 'live' : 'simulated'}) [attempt ${attempt}]`
+          );
+          return sub.packageKey;
+        }
+      } catch (err: any) {
+        lastError = err;
+        db.log('warning', 'proxy', `Sub-user reservation attempt ${attempt} failed for order ${order.id}: ${err.message}`);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
+    db.log('error', 'proxy', `Failed to allocate sub-user package for order ${order.id} after retries: ${lastError?.message || 'unknown error'}`);
+    return null;
   }
 }
