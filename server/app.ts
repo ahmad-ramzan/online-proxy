@@ -1091,26 +1091,42 @@ app.get('/api/admin/mobile-orders', authenticateToken, requireAdmin, (req, res) 
 // Admin assigns a proxy from inventory to a pending order
 app.post('/api/admin/mobile-orders/:orderId/assign', authenticateToken, requireAdmin, (req, res) => {
   const { orderId } = req.params;
-  const { mobileProxyId } = req.body;
+  // Either pick an existing pool proxy (mobileProxyId) or type one in on the
+  // spot (ip/port/username/password) — the latter creates it in inventory
+  // first, then assigns it, so the admin never has to leave this screen.
+  const { mobileProxyId, ip, port, username, password } = req.body;
+  const manualEntry = !mobileProxyId && ip && port && username && password;
 
-  if (!mobileProxyId) {
-    return res.status(400).json({ error: 'mobileProxyId is required.' });
+  if (!mobileProxyId && !manualEntry) {
+    return res.status(400).json({ error: 'Select a proxy from inventory, or enter ip, port, username and password to add a new one.' });
   }
 
   const order = dbInstance.getMobileProxyOrderById(orderId);
   if (!order) return res.status(404).json({ error: 'Order not found.' });
   if (order.status !== 'pending') return res.status(400).json({ error: 'Order is not pending.' });
 
-  const proxy = dbInstance.getMobileProxyById(mobileProxyId);
-  if (!proxy) return res.status(404).json({ error: 'Proxy not found.' });
-  if (proxy.status !== 'available') return res.status(400).json({ error: 'Proxy is not available.' });
-
   try {
+    let proxy = mobileProxyId ? dbInstance.getMobileProxyById(mobileProxyId) : undefined;
+    if (mobileProxyId) {
+      if (!proxy) return res.status(404).json({ error: 'Proxy not found.' });
+      if (proxy.status !== 'available') return res.status(400).json({ error: 'Proxy is not available.' });
+    } else {
+      // Manual entry: create it in inventory now, tagged with this order's plan.
+      proxy = dbInstance.insertMobileProxy({
+        id: `mp_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        ip: String(ip), port: String(port), username: String(username), password: String(password),
+        planName: order.planName, countryCode: order.countryCode, priceUsd: order.priceUsd,
+        protocol: 'socks5', status: 'available', createdAt: new Date().toISOString(),
+        operator: order.carrier, durationDays: order.durationDays
+      });
+    }
+
+    const proxyId = proxy.id;
     // Update proxy: assign to user, change status to active, start the clock
     // on its plan duration (falls back to the order's duration for pre-orders).
     const days = (proxy.durationDays && proxy.durationDays > 0) ? proxy.durationDays : (order.durationDays && order.durationDays > 0 ? order.durationDays : 30);
     const now = new Date();
-    dbInstance.updateMobileProxy(mobileProxyId, {
+    dbInstance.updateMobileProxy(proxyId, {
       userId: order.userId,
       status: 'active',
       assignedAt: now.toISOString(),
@@ -1120,12 +1136,12 @@ app.post('/api/admin/mobile-orders/:orderId/assign', authenticateToken, requireA
     // Update order: mark as assigned, link proxy
     dbInstance.updateMobileProxyOrder(orderId, {
       status: 'assigned',
-      mobileProxyId,
+      mobileProxyId: proxyId,
       assignedAt: new Date().toISOString()
     });
 
-    dbInstance.log('info', 'proxy', `Mobile proxy ${mobileProxyId} assigned to order ${orderId} (user ${order.userId}).`);
-    res.json({ success: true, proxy });
+    dbInstance.log('info', 'proxy', `Mobile proxy ${proxyId} assigned to order ${orderId} (user ${order.userId})${manualEntry ? ' — entered manually' : ''}.`);
+    res.json({ success: true, proxy: dbInstance.getMobileProxyById(proxyId) });
   } catch (e: any) {
     console.error('[/api/admin/mobile-orders/:orderId/assign] Error:', e.message || e);
     res.status(500).json({ error: e.message || 'Failed to assign proxy.' });

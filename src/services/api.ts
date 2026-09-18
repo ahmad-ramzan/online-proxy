@@ -585,6 +585,21 @@ export const api = {
       return res.json();
     },
 
+    // Type a brand-new proxy's credentials in on the spot instead of
+    // picking one from inventory — creates it and assigns it in one step.
+    async assignMobileProxyManual(orderId: string, proxy: { ip: string; port: string; username: string; password: string }): Promise<any> {
+      const res = await fetch(`${API_BASE}/api/admin/mobile-orders/${orderId}/assign`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(proxy)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to assign proxy');
+      }
+      return res.json();
+    },
+
     async getMobilePreOrderSlots(): Promise<{ id: string; countryCode: string; carrier: string; durationDays: number; priceUsd: number; totalSlots: number; remainingSlots: number; status: string }[]> {
       const res = await fetch(`${API_BASE}/api/admin/mobile-preorder-slots`, { headers: getHeaders() });
       if (!res.ok) throw new Error('Failed to load pre-order slots');

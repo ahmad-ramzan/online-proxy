@@ -33,6 +33,11 @@ export default function AdminPreOrderManagement() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [selectedProxy, setSelectedProxy] = useState<Record<string, string>>({});
   const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [openAssignId, setOpenAssignId] = useState<string | null>(null);
+  const [assignMode, setAssignMode] = useState<Record<string, 'select' | 'manual'>>({});
+  const [manualForm, setManualForm] = useState<Record<string, { ip: string; port: string; username: string; password: string }>>({});
+
+  const manualFieldsFor = (orderId: string) => manualForm[orderId] || { ip: '', port: '', username: '', password: '' };
 
   const loadSlots = async () => {
     setLoadingSlots(true);
@@ -97,12 +102,33 @@ export default function AdminPreOrderManagement() {
     catch (e: any) { alert(e.message || 'Failed to update slot'); }
   };
 
+  const closeAssign = (orderId: string) => {
+    setOpenAssignId(null);
+    setManualForm((f) => { const next = { ...f }; delete next[orderId]; return next; });
+  };
+
   const assignProxy = async (order: any) => {
     const proxyId = selectedProxy[order.id];
     if (!proxyId) { alert('Select a proxy first'); return; }
     setAssigningId(order.id);
     try {
       await api.admin.assignMobileProxy(order.id, proxyId);
+      closeAssign(order.id);
+      await loadOrders();
+    } catch (e: any) {
+      alert(e.message || 'Failed to assign proxy');
+    } finally {
+      setAssigningId(null);
+    }
+  };
+
+  const assignManual = async (order: any) => {
+    const f = manualFieldsFor(order.id);
+    if (!f.ip || !f.port || !f.username || !f.password) { alert('Fill in ip, port, username and password'); return; }
+    setAssigningId(order.id);
+    try {
+      await api.admin.assignMobileProxyManual(order.id, f);
+      closeAssign(order.id);
       await loadOrders();
     } catch (e: any) {
       alert(e.message || 'Failed to assign proxy');
@@ -254,34 +280,110 @@ export default function AdminPreOrderManagement() {
             </div>
           ) : orders.map((order) => {
             const matching = allProxies.filter((p) => p.status === 'available' && p.operator === order.carrier && p.countryCode === order.countryCode);
+            const isOpen = openAssignId === order.id;
+            const mode = assignMode[order.id] || 'select';
+            const mf = manualFieldsFor(order.id);
             return (
-              <div key={order.id} className="bg-slate-900/50 border border-slate-850 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-white">{order.userName || order.userEmail}</p>
-                  <p className="text-[11px] text-slate-500">{order.carrier} · {order.countryCode} · {order.durationDays} days · ${order.priceUsd.toFixed(2)}</p>
-                  <p className="text-[10px] text-amber-400 font-bold mt-1">Waiting for Proxy Assignment</p>
+              <div key={order.id} className="bg-slate-900/50 border border-slate-850 rounded-2xl p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-white">{order.userName || order.userEmail}</p>
+                    <p className="text-[11px] text-slate-500">{order.carrier} · {order.countryCode} · {order.durationDays} days · ${order.priceUsd.toFixed(2)}</p>
+                    <p className="text-[10px] text-amber-400 font-bold mt-1">Waiting for Proxy Assignment</p>
+                  </div>
+                  {!isOpen && (
+                    <button
+                      onClick={() => setOpenAssignId(order.id)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg cursor-pointer"
+                    >
+                      Assign Product
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedProxy[order.id] || ''}
-                    onChange={(e) => setSelectedProxy({ ...selectedProxy, [order.id]: e.target.value })}
-                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white min-w-[220px]"
-                  >
-                    <option value="">
-                      {matching.length === 0 ? `No available ${order.carrier} proxies` : `Select a ${order.carrier} proxy...`}
-                    </option>
-                    {matching.map((p) => (
-                      <option key={p.id} value={p.id}>{p.ip}:{p.port} — {p.planName}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => assignProxy(order)}
-                    disabled={!selectedProxy[order.id] || assigningId === order.id}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-xs font-bold rounded-lg cursor-pointer"
-                  >
-                    {assigningId === order.id ? 'Assigning...' : 'Assign Proxy'}
-                  </button>
-                </div>
+
+                {isOpen && (
+                  <div className="mt-4 pt-4 border-t border-slate-850 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setAssignMode({ ...assignMode, [order.id]: 'select' })}
+                        className={`px-3 py-1.5 text-[11px] font-bold rounded-lg cursor-pointer ${mode === 'select' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                      >
+                        Select from inventory
+                      </button>
+                      <button
+                        onClick={() => setAssignMode({ ...assignMode, [order.id]: 'manual' })}
+                        className={`px-3 py-1.5 text-[11px] font-bold rounded-lg cursor-pointer ${mode === 'manual' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                      >
+                        Enter manually
+                      </button>
+                    </div>
+
+                    {mode === 'select' ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={selectedProxy[order.id] || ''}
+                          onChange={(e) => setSelectedProxy({ ...selectedProxy, [order.id]: e.target.value })}
+                          className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white min-w-[220px]"
+                        >
+                          <option value="">
+                            {matching.length === 0 ? `No available ${order.carrier} proxies` : `Select a ${order.carrier} proxy...`}
+                          </option>
+                          {matching.map((p) => (
+                            <option key={p.id} value={p.id}>{p.ip}:{p.port} — {p.planName}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => assignProxy(order)}
+                          disabled={!selectedProxy[order.id] || assigningId === order.id}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-xs font-bold rounded-lg cursor-pointer"
+                        >
+                          {assigningId === order.id ? 'Assigning...' : 'Assign'}
+                        </button>
+                        <button onClick={() => closeAssign(order.id)} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-lg cursor-pointer">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input
+                            type="text" placeholder="IP Address" value={mf.ip}
+                            onChange={(e) => setManualForm({ ...manualForm, [order.id]: { ...mf, ip: e.target.value } })}
+                            className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                          />
+                          <input
+                            type="text" placeholder="Port" value={mf.port}
+                            onChange={(e) => setManualForm({ ...manualForm, [order.id]: { ...mf, port: e.target.value } })}
+                            className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                          />
+                          <input
+                            type="text" placeholder="Username" value={mf.username}
+                            onChange={(e) => setManualForm({ ...manualForm, [order.id]: { ...mf, username: e.target.value } })}
+                            className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                          />
+                          <input
+                            type="text" placeholder="Password" value={mf.password}
+                            onChange={(e) => setManualForm({ ...manualForm, [order.id]: { ...mf, password: e.target.value } })}
+                            className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-500">This adds the proxy to inventory (as {order.carrier}, {order.countryCode}, {order.durationDays} days) and assigns it to {order.userEmail} in one step.</p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => assignManual(order)}
+                            disabled={assigningId === order.id}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-xs font-bold rounded-lg cursor-pointer"
+                          >
+                            {assigningId === order.id ? 'Assigning...' : 'Add & Assign'}
+                          </button>
+                          <button onClick={() => closeAssign(order.id)} className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-lg cursor-pointer">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
