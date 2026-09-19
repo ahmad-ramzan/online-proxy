@@ -16,6 +16,9 @@ import {
 const DB_DIR = process.env.DB_DIR || path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'db.json');
 
+const LOG_RETENTION_MS = 40 * 24 * 60 * 60 * 1000; // audit logs kept for 40 days
+const LOG_MAX_ENTRIES = 100000;                    // safety cap (~1k/day today)
+
 interface DatabaseSchema {
   users: User[];
   packages: ProxyPackage[];
@@ -715,10 +718,13 @@ class Database {
       ipAddress: ip || '127.0.0.1'
     };
     db.logs.unshift(newLog);
-    // Keep last 150 logs to prevent infinite growth
-    if (db.logs.length > 150) {
-      db.logs = db.logs.slice(0, 150);
-    }
+    // Retain 40 days of logs (newest-first, so trim from the tail), with a
+    // hard entry cap as a safety net against runaway growth.
+    const cutoff = Date.now() - LOG_RETENTION_MS;
+    let keep = db.logs.length;
+    while (keep > 0 && new Date(db.logs[keep - 1].timestamp).getTime() < cutoff) keep--;
+    if (keep < db.logs.length) db.logs.length = keep;
+    if (db.logs.length > LOG_MAX_ENTRIES) db.logs.length = LOG_MAX_ENTRIES;
     this.write(db);
   }
 
