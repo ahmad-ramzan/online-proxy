@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { User, ProxyPackage, ProxyOrder, CreatedProxy, PaymentTransaction, SystemLog, ResidentialInfo, ResidentialGeoCountry, ResidentialProxyOptions, Coupon, NoticePost, SupportTicket } from '../types';
+import { User, ProxyPackage, ProxyOrder, CreatedProxy, PaymentTransaction, SystemLog, ResidentialInfo, ResidentialGeoCountry, ResidentialProxyOptions, Coupon, NoticePost, SupportTicket, DueLedgerEntry } from '../types';
 
 const API_BASE = ''; // Same origin
 
@@ -424,6 +424,15 @@ export const api = {
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to set due'); }
       return (await res.json()).user;
+    },
+
+    async getDueLedger(q?: string, limit = 500): Promise<DueLedgerEntry[]> {
+      const params = new URLSearchParams();
+      if (q && q.trim()) params.set('q', q.trim());
+      params.set('limit', String(limit));
+      const res = await fetch(`${API_BASE}/api/admin/due-ledger?${params.toString()}`, { headers: getHeaders() });
+      if (!res.ok) throw new Error('Failed to load due ledger');
+      return (await res.json()).entries;
     },
 
     async setUserBalance(userId: string, balance: number): Promise<User> {

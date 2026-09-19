@@ -12,6 +12,7 @@ import {
 import { User, ProxyPackage, SystemLog, CountryConfig, Coupon, NoticePost, SupportTicket } from '../types';
 import { api } from '../services/api';
 import AdminPreOrderManagement from './AdminPreOrderManagement';
+import AdminDueLedger from './AdminDueLedger';
 import AdminMobileProxyList from './AdminMobileProxyList';
 import FlagIcon from './FlagIcon';
 
@@ -20,7 +21,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies' | 'mobile-preorders' | 'hosted-ips'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'orders' | 'pricing' | 'coupons' | 'countries' | 'logs' | 'settings' | 'notice' | 'support' | 'mobile-proxies' | 'mobile-preorders' | 'due-ledger' | 'hosted-ips'>('stats');
 
   // States loaded from backend
   const [metrics, setMetrics] = useState<any>(null);
@@ -472,6 +473,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           { id: 'support', label: 'Support Tickets', icon: <HelpCircle className="w-4 h-4" /> },
           { id: 'mobile-proxies', label: 'Mobile Proxies', icon: <Smartphone className="w-4 h-4" /> },
           { id: 'mobile-preorders', label: 'Mobile Pre-Orders', icon: <PackageSearch className="w-4 h-4" /> },
+          { id: 'due-ledger', label: 'Due Ledger', icon: <DollarSign className="w-4 h-4" /> },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1665,6 +1667,12 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         {activeTab === 'mobile-preorders' && (
           <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-8 animate-fade-in">
             <AdminPreOrderManagement />
+          </div>
+        )}
+
+        {activeTab === 'due-ledger' && (
+          <div className="bg-slate-900/40 border border-slate-900 rounded-3xl p-6 backdrop-blur-md space-y-8 animate-fade-in">
+            <AdminDueLedger />
           </div>
         )}
 

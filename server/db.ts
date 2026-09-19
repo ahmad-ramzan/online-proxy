@@ -8,7 +8,7 @@ import path from 'path';
 import {
   User, ProxyPackage, ProxyOrder, CreatedProxy,
   PaymentTransaction, SystemLog, CountryConfig,
-  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder, MobilePlanGroup, MobilePreOrderSlot, HostedIP, ClearDuePayment
+  ApiSettings, PaymentSettings, WebsiteSettings, Coupon, NoticePost, SupportTicket, WalletTransaction, MobileProxy, MobileProxyOrder, MobilePlanGroup, MobilePreOrderSlot, HostedIP, ClearDuePayment, DueLedgerEntry
 } from '../src/types';
 
 // JSON file "database". On a VPS this persists on disk across restarts.
@@ -18,6 +18,7 @@ const DB_FILE = path.join(DB_DIR, 'db.json');
 
 const LOG_RETENTION_MS = 40 * 24 * 60 * 60 * 1000; // audit logs kept for 40 days
 const LOG_MAX_ENTRIES = 100000;                    // safety cap (~1k/day today)
+const DUE_LEDGER_MAX_ENTRIES = 20000;
 
 interface DatabaseSchema {
   users: User[];
@@ -39,6 +40,7 @@ interface DatabaseSchema {
   mobilePreOrderSlots: MobilePreOrderSlot[];
   hostedIps: HostedIP[];
   clearDuePayments: ClearDuePayment[];
+  dueLedger: DueLedgerEntry[];
 }
 
 const DEFAULT_DB: DatabaseSchema = {
@@ -83,6 +85,7 @@ const DEFAULT_DB: DatabaseSchema = {
   mobilePreOrderSlots: [],
   hostedIps: [],
   clearDuePayments: [],
+  dueLedger: [],
   logs: [
     {
       id: 'log_1',
@@ -147,6 +150,7 @@ class Database {
   constructor() {
     this.init();
     this.migrateLegacyBalanceFields();
+    this.backfillDueLedger();
   }
 
   private init() {
@@ -635,6 +639,73 @@ class Database {
     db.clearDuePayments[idx] = { ...db.clearDuePayments[idx], ...updates };
     this.write(db);
     return db.clearDuePayments[idx];
+  }
+
+  // --- DUE LEDGER (admin due/balance edits + Pay Due attempts) ---
+
+  /** Newest-first; optional case-insensitive email substring filter. */
+  public getDueLedger(q?: string, limit = 500): DueLedgerEntry[] {
+    const needle = (q || '').trim().toLowerCase();
+    const all = this.read().dueLedger || [];
+    const rows = needle ? all.filter(e => (e.userEmail || '').toLowerCase().includes(needle)) : all;
+    return rows.slice(0, limit);
+  }
+
+  public appendDueLedger(entry: Omit<DueLedgerEntry, 'id' | 'createdAt'> & { createdAt?: string }): DueLedgerEntry {
+    const db = this.read();
+    if (!db.dueLedger) db.dueLedger = [];
+    const full: DueLedgerEntry = {
+      ...entry,
+      id: `dl_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+      createdAt: entry.createdAt || new Date().toISOString()
+    };
+    db.dueLedger.unshift(full);
+    if (db.dueLedger.length > DUE_LEDGER_MAX_ENTRIES) db.dueLedger.length = DUE_LEDGER_MAX_ENTRIES;
+    this.write(db);
+    return full;
+  }
+
+  /** Gateway rows: one per txn, updated in place as pending → completed/failed. */
+  public upsertDueLedgerByTxn(txnId: string, entry: Omit<DueLedgerEntry, 'id' | 'createdAt' | 'txnId'>): DueLedgerEntry {
+    const db = this.read();
+    if (!db.dueLedger) db.dueLedger = [];
+    const idx = db.dueLedger.findIndex(e => e.txnId === txnId);
+    if (idx !== -1) {
+      db.dueLedger[idx] = { ...db.dueLedger[idx], ...entry, txnId };
+      this.write(db);
+      return db.dueLedger[idx];
+    }
+    return this.appendDueLedger({ ...entry, txnId });
+  }
+
+  /** One-time: create ledger rows for clear-due transactions that predate the ledger. */
+  private backfillDueLedger() {
+    const db = this.read();
+    if (!db.dueLedger) db.dueLedger = [];
+    const known = new Set(db.dueLedger.map(e => e.txnId).filter(Boolean));
+    const missing = (db.transactions || []).filter(t => t.purpose === 'clear-due' && !known.has(t.id));
+    if (missing.length === 0) return;
+    for (const t of missing) {
+      const completed = t.status === 'completed';
+      db.dueLedger.push({
+        id: `dl_${t.id}`,
+        createdAt: t.createdAt,
+        userId: t.userId,
+        userEmail: t.userEmail,
+        source: 'gateway-payment',
+        action: completed ? 'Due cleared via payment' : t.status === 'failed' ? 'Due payment failed' : 'Due payment pending',
+        amountUsd: t.amountUsd,
+        dueBefore: null, dueAfter: null, mainBefore: null, mainAfter: null,
+        balanceUpdated: completed,
+        status: t.status,
+        gateway: t.gateway,
+        txnId: t.id
+      });
+    }
+    db.dueLedger.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (db.dueLedger.length > DUE_LEDGER_MAX_ENTRIES) db.dueLedger.length = DUE_LEDGER_MAX_ENTRIES;
+    this.write(db);
+    this.log('info', 'system', `Due ledger backfilled with ${missing.length} earlier clear-due transactions.`);
   }
 
   // Assign an available IP to a user (atomic operation)

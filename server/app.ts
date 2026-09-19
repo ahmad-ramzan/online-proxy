@@ -1455,6 +1455,16 @@ app.post('/api/admin/users/due', authenticateToken, requireAdmin, (req, res) => 
 
   const updated = dbInstance.updateUser(userId, { dueBalance: newDue, mainBalance: newMainBalance });
   dbInstance.log('security', 'admin', `Admin set wallet Due for ${updated!.email} to $${newDue} (main balance ${delta >= 0 ? '+' : ''}${delta} → $${newMainBalance}).`);
+  try {
+    dbInstance.appendDueLedger({
+      userId, userEmail: updated!.email, source: 'admin-due',
+      action: delta > 0 ? 'Due released' : delta < 0 ? 'Due reduced' : 'Due re-saved (no change)',
+      amountUsd: Math.abs(delta),
+      dueBefore: oldDue, dueAfter: newDue,
+      mainBefore: user.mainBalance || 0, mainAfter: newMainBalance,
+      balanceUpdated: delta !== 0, status: 'completed'
+    });
+  } catch (e: any) { dbInstance.log('warning', 'admin', `Due ledger write failed: ${e.message}`); }
   res.json({ user: updated });
 });
 
@@ -1464,10 +1474,31 @@ app.post('/api/admin/users/balance', authenticateToken, requireAdmin, (req, res)
   const { userId, balance } = req.body;
   if (!userId) return res.status(400).json({ error: 'User ID is required.' });
   const amount = Math.max(0, Math.round((parseFloat(balance) || 0) * 100) / 100);
+  const before = dbInstance.getUsers().find(u => u.id === userId);
   const updated = dbInstance.updateUser(userId, { mainBalance: amount });
   if (!updated) return res.status(404).json({ error: 'User profile not found.' });
   dbInstance.log('security', 'admin', `Admin set Main Balance for ${updated.email} to $${amount}.`);
+  try {
+    const mainBefore = before ? before.mainBalance || 0 : null;
+    const due = updated.dueBalance || 0;
+    dbInstance.appendDueLedger({
+      userId, userEmail: updated.email, source: 'admin-balance',
+      action: 'Balance edited',
+      amountUsd: mainBefore === null ? amount : Math.abs(Math.round((amount - mainBefore) * 100) / 100),
+      dueBefore: due, dueAfter: due,
+      mainBefore, mainAfter: amount,
+      balanceUpdated: mainBefore !== amount, status: 'completed'
+    });
+  } catch (e: any) { dbInstance.log('warning', 'admin', `Due ledger write failed: ${e.message}`); }
   res.json({ user: updated });
+});
+
+// Admin: due/balance ledger (admin edits + Pay Due attempts), newest first,
+// optionally filtered by an email substring.
+app.get('/api/admin/due-ledger', authenticateToken, requireAdmin, (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  const limit = Math.min(5000, Math.max(1, parseInt(String(req.query.limit || '500'), 10) || 500));
+  res.json({ entries: dbInstance.getDueLedger(q, limit) });
 });
 
 app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {

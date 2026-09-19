@@ -121,6 +121,26 @@ export interface ClearDuePayment {
   completedAt?: string;
 }
 
+// One row in the admin "Due Ledger": every admin due/balance edit and every
+// customer Pay Due attempt, with before/after and whether a balance really changed.
+export interface DueLedgerEntry {
+  id: string;
+  createdAt: string;
+  userId: string;
+  userEmail: string;
+  source: 'admin-due' | 'admin-balance' | 'gateway-payment';
+  action: string;              // e.g. "Due released", "Due cleared via payment"
+  amountUsd: number;
+  dueBefore: number | null;    // null = unknown (backfilled rows)
+  dueAfter: number | null;
+  mainBefore: number | null;
+  mainAfter: number | null;
+  balanceUpdated: boolean;     // true only if a balance actually changed
+  status: 'completed' | 'pending' | 'failed';
+  gateway?: string;
+  txnId?: string;              // gateway rows are upserted by txnId
+}
+
 export interface ProxyPackage {
   id: string;
   name: string;

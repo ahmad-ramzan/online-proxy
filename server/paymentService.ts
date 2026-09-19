@@ -361,6 +361,36 @@ export class PaymentService {
   }
 
   /**
+   * Due Ledger bookkeeping for gateway Pay Due attempts. Must never throw into
+   * the payment path — a ledger bug can't be allowed to break a payment.
+   */
+  private static recordClearDueLedger(txn: PaymentTransaction, patch: {
+    action: string; status: 'completed' | 'pending' | 'failed'; balanceUpdated: boolean;
+    dueBefore: number | null; dueAfter: number | null; mainBefore: number | null; mainAfter: number | null;
+  }): void {
+    try {
+      dbInstance.upsertDueLedgerByTxn(txn.id, {
+        userId: txn.userId, userEmail: txn.userEmail, source: 'gateway-payment',
+        amountUsd: txn.amountUsd, gateway: txn.gateway, ...patch
+      });
+    } catch (e: any) {
+      dbInstance.log('warning', 'payment', `Due ledger write failed for ${txn.id}: ${e.message}`);
+    }
+  }
+
+  /** Called when a gateway definitively reports a Pay Due attempt as failed/cancelled. */
+  private static markClearDueAttemptFailed(txn: PaymentTransaction): void {
+    if (txn.purpose !== 'clear-due') return;
+    const user = dbInstance.getUsers().find(u => u.id === txn.userId);
+    const due = user ? user.dueBalance || 0 : null;
+    const main = user ? user.mainBalance || 0 : null;
+    this.recordClearDueLedger(txn, {
+      action: 'Due payment failed', status: 'failed', balanceUpdated: false,
+      dueBefore: due, dueAfter: due, mainBefore: main, mainAfter: main
+    });
+  }
+
+  /**
    * Starts a CLEAR-DUE payment: creates a `purpose: 'clear-due'` transaction for
    * the user's outstanding due balance and routes it to the chosen gateway. On
    * completion the shared callbacks reduce dueBalance (see completePaymentTransaction).
@@ -388,6 +418,16 @@ export class PaymentService {
       createdAt: new Date().toISOString(),
       purpose: 'clear-due'
     });
+    {
+      const u = dbInstance.getUsers().find(x => x.id === params.userId);
+      const due = u ? u.dueBalance || 0 : null;
+      const main = u ? u.mainBalance || 0 : null;
+      const pendingTxn = dbInstance.getTransactions().find(t => t.id === txnId);
+      if (pendingTxn) this.recordClearDueLedger(pendingTxn, {
+        action: 'Due payment pending', status: 'pending', balanceUpdated: false,
+        dueBefore: due, dueAfter: due, mainBefore: main, mainAfter: main
+      });
+    }
 
     // --- ZiniPay ---
     if (params.gateway === 'credit_card' && ZiniPayService.isConfigured() && params.appUrl) {
@@ -710,6 +750,7 @@ export class PaymentService {
     const verify = await PayStationService.verifyInvoice(invoiceNumber, trxId);
     if (!verify.completed) {
       dbInstance.log('warning', 'payment', `PayStation invoice ${invoiceNumber} not completed (trx_status=${verify.trxStatus ?? 'unknown'}).`);
+      if (String(verify.trxStatus || '').toLowerCase() === 'failed') this.markClearDueAttemptFailed(txn);
       return { ok: false, orderId: txn.orderId, trxStatus: verify.trxStatus };
     }
 
@@ -733,6 +774,7 @@ export class PaymentService {
     const verify = await CryptomusService.verifyInvoice(orderId);
     if (!verify.completed) {
       dbInstance.log('warning', 'payment', `Cryptomus order ${orderId} not completed (status=${verify.status ?? 'unknown'}).`);
+      if (['fail', 'cancel', 'system_fail'].includes(String(verify.status || '').toLowerCase())) this.markClearDueAttemptFailed(txn);
       return { ok: false, orderId: txn.orderId, status: verify.status };
     }
 
@@ -772,10 +814,16 @@ export class PaymentService {
     if (txn.purpose === 'clear-due') {
       db.updateTransaction(txn.id, { status: 'completed' });
       const user = db.getUsers().find(u => u.id === txn.userId);
+      const dueBefore = user ? user.dueBalance || 0 : null;
+      const mainNow = user ? user.mainBalance || 0 : null;
       if (user && user.dueBalance > 0) {
         // Clear the due balance
         const cleared = Math.min(user.dueBalance, txn.amountUsd);
         db.updateUser(txn.userId, { dueBalance: Math.max(0, user.dueBalance - cleared) });
+        this.recordClearDueLedger(txn, {
+          action: 'Due cleared via payment', status: 'completed', balanceUpdated: true,
+          dueBefore, dueAfter: Math.max(0, user.dueBalance - cleared), mainBefore: mainNow, mainAfter: mainNow
+        });
         // Record the clear-due payment
         db.insertClearDuePayment({
           id: `cdp_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -789,6 +837,12 @@ export class PaymentService {
           completedAt: new Date().toISOString()
         });
         db.log('info', 'payment', `Due balance cleared: $${cleared} for user ${txn.userId} via ${txn.gateway}`);
+      } else {
+        // Paid, but there was no due left to clear (e.g. admin already zeroed it).
+        this.recordClearDueLedger(txn, {
+          action: 'Payment received — no due left to clear', status: 'completed', balanceUpdated: false,
+          dueBefore, dueAfter: dueBefore, mainBefore: mainNow, mainAfter: mainNow
+        });
       }
       return true;
     }
