@@ -565,6 +565,19 @@ app.post('/api/proxy/create', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'This order package is inactive, pending, or expired. Complete payment first.' });
   }
 
+  // Cap active proxies per account at 5 (account-wide, not per order). A customer
+  // spinning up dozens of concurrent ports off one shared bandwidth pool was the
+  // #1 cause of plans draining far faster than expected — each port is its own
+  // live connection pulling from the same GB quota. Delete one to make room for
+  // another rather than letting the count grow unbounded.
+  const MAX_ACTIVE_PROXIES_PER_USER = 5;
+  const existingProxyCount = dbInstance.getProxies().filter(p => p.userId === req.user!.id).length;
+  if (existingProxyCount >= MAX_ACTIVE_PROXIES_PER_USER) {
+    return res.status(400).json({
+      error: `You've reached the limit of ${MAX_ACTIVE_PROXIES_PER_USER} active proxies. Delete an existing proxy before creating a new one.`
+    });
+  }
+
   // Residential proxies MUST be provisioned under a customer sub-user package.
   // If the order has no subUserPackageKey (or only a simulated one while live API key is set),
   // perform Just-In-Time (JIT) recovery to allocate the sub-user before allowing proxy creation.

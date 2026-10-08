@@ -1420,6 +1420,7 @@ export default function App() {
               {dashboardTab === 'create-proxy' && (
                 <CreateProxy
                   orders={myOrders}
+                  activeProxyCount={myProxies.length}
                   onProxyCreated={syncLedgerData}
                   pinnedCountries={pinnedCountries}
                 />

@@ -12,15 +12,19 @@ import { ProxyOrder, CreatedProxy, ResidentialGeoCountry, ResidentialProxyOption
 import { api } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
 
+const MAX_ACTIVE_PROXIES = 5;
+
 interface CreateProxyProps {
   orders: ProxyOrder[];
+  activeProxyCount: number;
   onProxyCreated: () => void;
   pinnedCountries?: string; // comma-separated ISO-2 codes to pin at the top
 }
 
-export default function CreateProxy({ orders, onProxyCreated, pinnedCountries }: CreateProxyProps) {
+export default function CreateProxy({ orders, activeProxyCount, onProxyCreated, pinnedCountries }: CreateProxyProps) {
   // Filters active orders only
   const activeOrders = orders.filter(o => o.status === 'active');
+  const atProxyLimit = activeProxyCount >= MAX_ACTIVE_PROXIES;
 
   const [selectedOrderId, setSelectedOrderId] = useState(activeOrders[0]?.id || '');
   const [protocol, setProtocol] = useState<'http' | 'socks5'>('socks5');
@@ -227,6 +231,12 @@ export default function CreateProxy({ orders, onProxyCreated, pinnedCountries }:
         {/* Creation Form Block */}
         <form onSubmit={handleDeploy} className="lg:col-span-7 bg-slate-900/40 border border-slate-900 p-8 rounded-3xl backdrop-blur-md space-y-6">
 
+          {atProxyLimit && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300">
+              You've reached the limit of {MAX_ACTIVE_PROXIES} active proxies ({activeProxyCount}/{MAX_ACTIVE_PROXIES}). Delete one from your proxy list below before creating another — each active proxy is its own live connection drawing from your plan's shared GB, so fewer, well-used proxies make your bandwidth last longer.
+            </div>
+          )}
+
           {/* Order Selector */}
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Select Active Plan Slot</label>
@@ -408,7 +418,7 @@ export default function CreateProxy({ orders, onProxyCreated, pinnedCountries }:
           {/* Action Trigger */}
           <button
             type="submit"
-            disabled={loading || activeOrders.length === 0}
+            disabled={loading || activeOrders.length === 0 || atProxyLimit}
             className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-bold text-sm text-white shadow-lg shadow-blue-900/40 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
@@ -416,6 +426,8 @@ export default function CreateProxy({ orders, onProxyCreated, pinnedCountries }:
                 <Loader2 className="w-5 h-5 animate-spin" />
                 Creating list via /resident/list/add…
               </>
+            ) : atProxyLimit ? (
+              `Limit reached (${activeProxyCount}/${MAX_ACTIVE_PROXIES}) — delete a proxy first`
             ) : (
               <>
                 Create {countryObj?.name || 'residential'} proxy
