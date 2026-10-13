@@ -527,8 +527,11 @@ app.get('/api/proxy/usage', authenticateToken, async (req, res) => {
   const perOrder = orders.map(o => {
     const u = o.subUserPackageKey ? usage[o.subUserPackageKey] : undefined;
     const ub = u ? u.usedBytes : 0;
-    // Limit is the ordered amount in binary GB, matching Proxy-Seller's own 1-GiB unit.
-    const lb = Math.round(o.bandwidthGb * GB);
+    // Prefer Proxy-Seller's own reserved size for this sub-user package (authoritative,
+    // whatever basis it was created with) over recomputing from the order — local vs
+    // upstream disagreeing here is exactly what let customers hit a raw "Traffic ended"
+    // error after the GB-size definition changed.
+    const lb = (u && u.limitBytes > 0) ? u.limitBytes : Math.round(o.bandwidthGb * GB);
     usedBytes += ub;
     limitBytes += lb;
     return {
@@ -607,7 +610,8 @@ app.post('/api/proxy/create', authenticateToken, async (req, res) => {
   if (order.subUserPackageKey) {
     const { live, usage } = await ResidentialService.getSubUserUsage();
     const u = live ? usage[order.subUserPackageKey] : undefined;
-    const limitBytes = Math.round(order.bandwidthGb * 1024 * 1024 * 1024); // binary GB
+    // Prefer Proxy-Seller's own reserved size over recomputing locally (see /api/proxy/usage).
+    const limitBytes = (u && u.limitBytes > 0) ? u.limitBytes : Math.round(order.bandwidthGb * 1024 * 1024 * 1024);
     if (u && u.usedBytes >= limitBytes) {
       return res.status(400).json({
         error: 'This plan has no bandwidth left. Please purchase a refill to create new proxies.'
@@ -1937,7 +1941,8 @@ export async function enforceBandwidthLimits(): Promise<void> {
       dbInstance.updateOrder(order.id, { bandwidthUsedGb: usedGb });
     }
 
-    const limitBytes = Math.round(order.bandwidthGb * BYTES_PER_GB);
+    // Prefer Proxy-Seller's own reserved size over recomputing locally (see /api/proxy/usage).
+    const limitBytes = u.limitBytes > 0 ? u.limitBytes : Math.round(order.bandwidthGb * BYTES_PER_GB);
     if (u.usedBytes < limitBytes) continue;
 
     const proxies = dbInstance.getProxies().filter(p => p.orderId === order.id);
