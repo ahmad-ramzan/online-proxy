@@ -195,7 +195,7 @@ export class ResidentialService {
     if (!info.live || info.trafficLeftBytes == null) {
       return { live: false, availableGb: Infinity, trafficLeftGb: Infinity };
     }
-    const trafficLeftGb = info.trafficLeftBytes / 1e9; // decimal GB (1 GB = 1000 MB)
+    const trafficLeftGb = info.trafficLeftBytes / 1073741824; // binary GB (1 GB = 1024 MB)
     return { live: true, trafficLeftGb, availableGb: Math.max(0, trafficLeftGb) };
   }
 

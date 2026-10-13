@@ -705,7 +705,7 @@ export class PaymentService {
       if (coupon) dbInstance.updateCoupon(coupon.id, { usedCount: coupon.usedCount + 1 });
     }
 
-    // Reserve the customer's traffic on Proxy-Seller (decimal GB) as a sub-user.
+    // Reserve the customer's traffic on Proxy-Seller (binary GB) as a sub-user.
     await this.ensureSubUserForOrder(newOrder.id);
     dbInstance.log('info', 'payment', `Order ${newOrder.id} paid from wallet ($${finalUsd}).`);
     return { ok: true, orderId: newOrder.id };
@@ -945,7 +945,7 @@ export class PaymentService {
     }
 
     // LIVE MODE: create real sub-user on Proxy-Seller
-    const trafficBytes = Math.round(order.bandwidthGb * 1000 * 1000 * 1000);
+    const trafficBytes = Math.round(order.bandwidthGb * 1024 * 1024 * 1024); // binary: 1 GB = 1024 MB
     let lastError: any = null;
 
     for (let attempt = 1; attempt <= 2; attempt++) {

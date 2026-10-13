@@ -522,12 +522,12 @@ app.get('/api/proxy/residential/geo', authenticateToken, async (req, res) => {
 app.get('/api/proxy/usage', authenticateToken, async (req, res) => {
   const orders = dbInstance.getOrders().filter(o => o.userId === req.user!.id && o.status === 'active');
   const { live, usage } = await ResidentialService.getSubUserUsage();
-  const GB = 1000 * 1000 * 1000; // decimal: 1 GB = 1000 MB, matches what we sell
+  const GB = 1024 * 1024 * 1024; // binary: 1 GB = 1024 MB, matches what we sell
   let usedBytes = 0, limitBytes = 0;
   const perOrder = orders.map(o => {
     const u = o.subUserPackageKey ? usage[o.subUserPackageKey] : undefined;
     const ub = u ? u.usedBytes : 0;
-    // Limit is the ordered amount in decimal GB, not Proxy-Seller's 1-GiB reservation.
+    // Limit is the ordered amount in binary GB, matching Proxy-Seller's own 1-GiB unit.
     const lb = Math.round(o.bandwidthGb * GB);
     usedBytes += ub;
     limitBytes += lb;
@@ -607,7 +607,7 @@ app.post('/api/proxy/create', authenticateToken, async (req, res) => {
   if (order.subUserPackageKey) {
     const { live, usage } = await ResidentialService.getSubUserUsage();
     const u = live ? usage[order.subUserPackageKey] : undefined;
-    const limitBytes = Math.round(order.bandwidthGb * 1000 * 1000 * 1000); // decimal GB
+    const limitBytes = Math.round(order.bandwidthGb * 1024 * 1024 * 1024); // binary GB
     if (u && u.usedBytes >= limitBytes) {
       return res.status(400).json({
         error: 'This plan has no bandwidth left. Please purchase a refill to create new proxies.'
@@ -1880,10 +1880,11 @@ app.delete('/api/admin/hosted-ips/:id', authenticateToken, requireAdmin, (req, r
 // ---------------------------------------------------------------------------
 const ENFORCE_INTERVAL_MS = 60 * 1000;
 
-// We sell bandwidth in DECIMAL gigabytes: 1 GB = 1000 MB = 1,000,000,000 bytes
-// (not the 1 GiB / 1024 MB that Proxy-Seller reserves internally). The cutoff is
-// therefore computed from the order, so a "1 GB" plan stops at exactly 1000 MB.
-const BYTES_PER_GB = 1000 * 1000 * 1000;
+// We sell bandwidth in BINARY gigabytes: 1 GB = 1024 MB = 1,073,741,824 bytes —
+// matching Proxy-Seller's own 1 GiB reservation unit, so the numbers on our
+// dashboard line up with what Proxy-Seller's dashboard shows. The cutoff is
+// computed from the order, so a "1 GB" plan stops at exactly 1024 MB.
+const BYTES_PER_GB = 1024 * 1024 * 1024;
 
 export async function repairMissingSubUsers(): Promise<{ repaired: number; failed: number }> {
   const settings = dbInstance.getApiSettings();
