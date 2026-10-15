@@ -52,6 +52,14 @@ const countryName = (code: string) => {
   try { return countryDisplayNames?.of(code.toUpperCase()) || code; } catch { return code; }
 };
 
+function remainingDaysText(expiresAt?: string): string {
+  if (!expiresAt) return '—';
+  const msLeft = new Date(expiresAt).getTime() - Date.now();
+  if (msLeft <= 0) return 'Expired';
+  const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+  return `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`;
+}
+
 export default function MobileProxies({ walletBalance, onTopUp, onCheckout, onPreOrderCheckout }: MobileProxiesProps) {
   const [plans, setPlans] = useState<MobilePlanGroup[]>([]);
   const [mine, setMine] = useState<any[]>([]);
@@ -162,6 +170,17 @@ export default function MobileProxies({ walletBalance, onTopUp, onCheckout, onPr
                     <span className="font-mono text-sm text-slate-300 truncate">{conn}</span>
                     {copiedId === m.id ? <Check className="w-5 h-5 text-green-400 shrink-0" /> : <Copy className="w-5 h-5 text-slate-500 group-hover:text-white shrink-0" />}
                   </button>
+                  {(m.assignedAt || m.expiresAt) && (
+                    <div className="mt-3 flex items-center gap-4 text-[11px] flex-wrap">
+                      {m.assignedAt && <span><span className="text-slate-500">Start:</span> <span className="text-slate-300 font-semibold">{new Date(m.assignedAt).toLocaleDateString()}</span></span>}
+                      {m.expiresAt && <span><span className="text-slate-500">Expiry:</span> <span className="text-slate-300 font-semibold">{new Date(m.expiresAt).toLocaleDateString()}</span></span>}
+                      {m.expiresAt && (
+                        <span className={`font-bold px-2 py-0.5 rounded-full ${remainingDaysText(m.expiresAt) === 'Expired' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                          {remainingDaysText(m.expiresAt)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
