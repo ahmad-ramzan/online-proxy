@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, DollarSign, Database, Server, Settings, Terminal, Shield,
   Trash2, ToggleLeft, ToggleRight, Plus, Check, Edit2, ShieldAlert,
-  Loader2, Save, Globe, Lock, Code, Ticket, Receipt, Megaphone, Bell, Pin, X, HelpCircle, Smartphone, PackageSearch
+  Loader2, Save, Globe, Lock, Code, Ticket, Receipt, Megaphone, Bell, Pin, X, HelpCircle, Smartphone, PackageSearch, Download
 } from 'lucide-react';
 import { User, ProxyPackage, SystemLog, CountryConfig, Coupon, NoticePost, SupportTicket } from '../types';
 import { api } from '../services/api';
@@ -446,6 +446,33 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     return true;
   });
 
+  const exportOrdersToExcel = () => {
+    const headers = ['Date', 'Customer Name', 'Customer Email', 'Package', 'Bandwidth (GB)', 'Amount (USD)', 'Discount (USD)', 'Coupon', 'Gateway', 'Status'];
+    const escapeCsv = (val: unknown) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+    const rows = filteredOrders.map((o) => [
+      new Date(o.createdAt).toLocaleString(),
+      o.userName || '',
+      o.userEmail || '',
+      o.packageName || '',
+      o.bandwidthGb,
+      o.amountUsd,
+      o.discountUsd || 0,
+      o.couponCode || '',
+      o.gateway === 'credit_card' ? 'ZiniPay' : o.gateway,
+      o.status
+    ].map(escapeCsv).join(','));
+    const csv = '﻿' + [headers.map(escapeCsv).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `order-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-slate-200">
       
@@ -706,12 +733,21 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                 <Receipt className="w-4 h-4 text-blue-400" /> Order History
                 <span className="text-xs font-normal text-slate-500">({filteredOrders.length}{filteredOrders.length !== orderHistory.length ? ` / ${orderHistory.length}` : ''})</span>
               </h3>
-              <button
-                onClick={async () => { try { setOrderHistory(await api.admin.getOrderHistory()); } catch {} }}
-                className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer self-start"
-              >
-                <Loader2 className="w-3 h-3" /> Refresh
-              </button>
+              <div className="flex items-center gap-3 self-start">
+                <button
+                  onClick={exportOrdersToExcel}
+                  disabled={filteredOrders.length === 0}
+                  className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 disabled:text-slate-600 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                >
+                  <Download className="w-3 h-3" /> Export Excel
+                </button>
+                <button
+                  onClick={async () => { try { setOrderHistory(await api.admin.getOrderHistory()); } catch {} }}
+                  className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
+                >
+                  <Loader2 className="w-3 h-3" /> Refresh
+                </button>
+              </div>
             </div>
 
             {/* Filters */}
