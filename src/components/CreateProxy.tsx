@@ -51,6 +51,12 @@ export default function CreateProxy({ orders, activeProxyCount, onProxyCreated, 
   const [copied, setCopied] = useState(false);
   const [ipCopied, setIpCopied] = useState(false);
 
+  // Tracks the residential-geo load separately from `error` above (which is for
+  // proxy-creation submission errors) so a transient network blip can be retried
+  // without touching unrelated error state.
+  const [geoError, setGeoError] = useState(false);
+  const [geoRetryNonce, setGeoRetryNonce] = useState(0);
+
   // Real per-order bandwidth from Proxy-Seller, keyed by order id. The local
   // `bandwidthUsedGb` on an order is never updated, so it would always report
   // the full package as remaining — this is the authoritative figure.
@@ -77,9 +83,12 @@ export default function CreateProxy({ orders, activeProxyCount, onProxyCreated, 
     return leftGb < 1 ? `${Math.round(leftGb * 1024)} MB` : `${Math.round(leftGb * 100) / 100} GB`;
   };
 
-  // Load residential locations once
+  // Load residential locations. Retried automatically once on failure (covers a
+  // transient network blip), then left to a manual Retry button in the error banner.
   useEffect(() => {
     let active = true;
+    setGeoLoading(true);
+    setGeoError(false);
     api.proxy.getResidentialGeo()
       .then(({ live, geo, options }) => {
         if (!active) return;
@@ -102,10 +111,18 @@ export default function CreateProxy({ orders, activeProxyCount, onProxyCreated, 
         }
         if (sortedGeo.length) applyCountry(sortedGeo, sortedGeo[0].code);
       })
-      .catch(() => { if (active) setError('Could not load residential locations.'); })
+      .catch(() => {
+        if (!active) return;
+        if (geoRetryNonce === 0) {
+          // First failure: retry once automatically after a short delay.
+          setTimeout(() => { if (active) setGeoRetryNonce(1); }, 3000);
+        } else {
+          setGeoError(true);
+        }
+      })
       .finally(() => { if (active) setGeoLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [geoRetryNonce]);
 
   // Auto-select the first active plan once orders load (they arrive asynchronously).
   useEffect(() => {
@@ -220,10 +237,22 @@ export default function CreateProxy({ orders, activeProxyCount, onProxyCreated, 
           }`}>
             <Radio className={`w-3 h-3 ${geoLive ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
             <span className="text-[10px] font-mono uppercase tracking-wider text-slate-300">
-              {geoLive === null ? 'Connecting…' : geoLive ? 'Proxy Gpt Online' : 'Demo Locations'}
+              {geoError ? 'Connection failed' : geoLive === null ? 'Connecting…' : geoLive ? 'Proxy Gpt Online' : 'Demo Locations'}
             </span>
           </div>
         </div>
+        {geoError && (
+          <div className="mt-4 flex items-center justify-between gap-3 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl">
+            <span>Could not load residential locations. Please check your connection.</span>
+            <button
+              type="button"
+              onClick={() => { setGeoError(false); setGeoRetryNonce(n => n + 1); }}
+              className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 rounded-lg cursor-pointer"
+            >
+              <RefreshCw className="w-3 h-3" /> Retry
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
