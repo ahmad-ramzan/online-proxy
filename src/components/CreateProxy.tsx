@@ -111,8 +111,9 @@ export default function CreateProxy({ orders, activeProxyCount, onProxyCreated, 
         }
         if (sortedGeo.length) applyCountry(sortedGeo, sortedGeo[0].code);
       })
-      .catch(() => {
+      .catch((err: any) => {
         if (!active) return;
+        console.error('Residential geo load failed:', err);
         if (geoRetryNonce === 0) {
           // First failure: retry once automatically after a short delay.
           setTimeout(() => { if (active) setGeoRetryNonce(1); }, 3000);
@@ -132,29 +133,35 @@ export default function CreateProxy({ orders, activeProxyCount, onProxyCreated, 
   }, [orders]);
 
   // Cascading select helpers (each picks the first child of the new parent)
+  // Optional chaining must guard every step here, not just the first — some
+  // countries/regions/cities in the live Proxy-Seller tree can have a sparse
+  // or missing nested array, and `c?.regions[0]` still throws if `c.regions`
+  // itself is undefined. An uncaught throw here (inside the geo-load .then())
+  // was landing in the load's .catch() and showing "Could not load
+  // residential locations" even though the fetch had already succeeded.
   const applyCountry = (tree: ResidentialGeoCountry[], code: string) => {
     const c = tree.find(x => x.code === code);
-    const r = c?.regions[0];
-    const ct = r?.cities[0];
+    const r = c?.regions?.[0];
+    const ct = r?.cities?.[0];
     setCountryCode(code);
     setRegion(r?.name || '');
     setCity(ct?.name || '');
-    setIsp(ct?.isps[0] || '');
+    setIsp(ct?.isps?.[0] || '');
   };
   const applyRegion = (name: string) => {
     const c = geo.find(x => x.code === countryCode);
-    const r = c?.regions.find(x => x.name === name);
-    const ct = r?.cities[0];
+    const r = c?.regions?.find(x => x.name === name);
+    const ct = r?.cities?.[0];
     setRegion(name);
     setCity(ct?.name || '');
-    setIsp(ct?.isps[0] || '');
+    setIsp(ct?.isps?.[0] || '');
   };
   const applyCity = (name: string) => {
     const c = geo.find(x => x.code === countryCode);
-    const r = c?.regions.find(x => x.name === region);
-    const ct = r?.cities.find(x => x.name === name);
+    const r = c?.regions?.find(x => x.name === region);
+    const ct = r?.cities?.find(x => x.name === name);
     setCity(name);
-    setIsp(ct?.isps[0] || '');
+    setIsp(ct?.isps?.[0] || '');
   };
 
   // Derived option lists for the current selection
