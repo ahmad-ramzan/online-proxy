@@ -34,9 +34,31 @@ import { User, ProxyPackage, Coupon } from '../src/types';
 
 const app = express();
 
+// Express auto-generates an ETag for every JSON response. Once a client has
+// seen a given payload, a later identical request (e.g. revisiting a page)
+// gets answered with a bare "304 Not Modified" and no body — Express checks
+// this itself against the incoming If-None-Match header, independent of any
+// Cache-Control we set. Our frontend fetch wrappers treat any non-2xx status
+// (304 is not in the 2xx range) as a failure and throw. This was the real
+// cause behind the intermittent "Could not load residential locations"
+// reports, confirmed via a live browser Network tab capture (304 Not
+// Modified on a request that had succeeded moments earlier with identical
+// content). Disabling etag stops Express from ever producing a 304 for an
+// API call; it also quietly reduces caching efficiency for static JS/CSS
+// bundles served below, which is an acceptable tradeoff (worst case: an
+// unnecessary full re-download instead of a cheap 304 — never broken).
+app.set('etag', false);
+
 // Parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Belt-and-suspenders: explicitly tell browsers/CDNs never to cache API
+// responses at all, so there's nothing to even attempt to revalidate.
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 // --- MIDDLEWARE: AUTHENTICATION ---
 // Decodes and validates bearer token. To keep deployment dependencies simple,
