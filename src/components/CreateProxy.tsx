@@ -98,7 +98,8 @@ export default function CreateProxy({ orders, activeProxyCount, onProxyCreated, 
         const sortedGeo = [...geo].sort((a, b) => {
           const ra = PRIORITY.indexOf(a.code) === -1 ? 99 : PRIORITY.indexOf(a.code);
           const rb = PRIORITY.indexOf(b.code) === -1 ? 99 : PRIORITY.indexOf(b.code);
-          return ra !== rb ? ra - rb : a.name.localeCompare(b.name);
+          // Live Proxy-Seller data occasionally has a null `name` on an entry.
+          return ra !== rb ? ra - rb : (a.name || '').localeCompare(b.name || '');
         });
         setGeo(sortedGeo);
         setGeoLive(live);
