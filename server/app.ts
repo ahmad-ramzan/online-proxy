@@ -1982,6 +1982,12 @@ setTimeout(() => {
   repairMissingSubUsers().catch(() => {});
 }, 5000);
 
+// Pre-warm the residential GEO cache so the first customer to open Create Proxy
+// after a restart doesn't have to wait on a live multi-MB fetch themselves.
+setTimeout(() => {
+  ResidentialService.getGeo().catch(() => {});
+}, 2000);
+
 if (process.env.NODE_ENV === 'production') {
   setInterval(() => { enforceBandwidthLimits().catch(() => { /* logged inside */ }); }, ENFORCE_INTERVAL_MS);
 }

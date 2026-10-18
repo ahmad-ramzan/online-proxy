@@ -232,26 +232,17 @@ export class ResidentialService {
   // --- GEO -----------------------------------------------------------------
 
   private static geoCache: { at: number; live: boolean; data: ResidentialGeoCountry[] } | null = null;
+  private static geoRefreshing: Promise<void> | null = null;
   private static readonly GEO_TTL_MS = 60 * 60 * 1000;        // live tree: 1 hour
   private static readonly GEO_FALLBACK_TTL_MS = 15 * 60 * 1000; // after an error: retry after 15 min
+  // Hard ceiling before we force customers to wait on a live fetch instead of
+  // serving stale data — keeps the geo tree from going stale forever if the
+  // background refresh keeps failing.
+  private static readonly GEO_MAX_STALE_MS = 6 * 60 * 60 * 1000;
 
-  /**
-   * GET /resident/geo — full country/region/city/ISP tree (cached).
-   * Falls back to a compact simulated tree when no key / on error.
-   */
-  public static async getGeo(): Promise<{ live: boolean; geo: ResidentialGeoCountry[] }> {
+  /** Actually hits Proxy-Seller and refreshes geoCache. Never throws. */
+  private static async refreshGeo(): Promise<void> {
     const { baseUrl, apiKey } = this.getConfig();
-
-    if (!apiKey) return { live: false, geo: this.simulatedGeo() };
-
-    // Serve from cache if fresh (avoids hitting the rate limit; payload is large).
-    if (this.geoCache) {
-      const ttl = this.geoCache.live ? this.GEO_TTL_MS : this.GEO_FALLBACK_TTL_MS;
-      if (Date.now() - this.geoCache.at < ttl) {
-        return { live: this.geoCache.live, geo: this.geoCache.data };
-      }
-    }
-
     try {
       const res = await fetch(`${baseUrl}/${apiKey}/resident/geo`, {
         method: 'GET',
@@ -275,13 +266,55 @@ export class ResidentialService {
       }
       this.geoCache = { at: Date.now(), live: true, data };
       dbInstance.log('info', 'proxy', `Loaded ${data.length} residential GEO countries from Proxy-Seller.`);
-      return { live: true, geo: data };
     } catch (err: any) {
       dbInstance.log('warning', 'proxy', `Residential GEO fetch failed, using simulation: ${err.message}`);
-      const geo = this.simulatedGeo();
-      this.geoCache = { at: Date.now(), live: false, data: geo };
-      return { live: false, geo };
+      // Only fall back to the simulated tree if we have nothing at all to serve —
+      // a slow/failed refresh shouldn't nuke an otherwise-good stale cache.
+      if (!this.geoCache) {
+        this.geoCache = { at: Date.now(), live: false, data: this.simulatedGeo() };
+      }
     }
+  }
+
+  /**
+   * GET /resident/geo — full country/region/city/ISP tree (cached).
+   * Falls back to a compact simulated tree when no key / on error.
+   *
+   * Stale-while-revalidate: if we already have cached data, we return it
+   * immediately and kick off a background refresh rather than making the
+   * customer's request wait on a live Proxy-Seller fetch — that payload is a
+   * multi-MB ZIP and can occasionally take well over a minute, which was
+   * timing out customer requests ("Could not load residential locations.").
+   * We only block on a live fetch when there's no cache at all yet (e.g.
+   * right after a server restart) or the cache has gone stale past the hard
+   * ceiling.
+   */
+  public static async getGeo(): Promise<{ live: boolean; geo: ResidentialGeoCountry[] }> {
+    const { apiKey } = this.getConfig();
+
+    if (!apiKey) return { live: false, geo: this.simulatedGeo() };
+
+    if (this.geoCache) {
+      const ttl = this.geoCache.live ? this.GEO_TTL_MS : this.GEO_FALLBACK_TTL_MS;
+      const age = Date.now() - this.geoCache.at;
+      if (age < ttl) {
+        return { live: this.geoCache.live, geo: this.geoCache.data };
+      }
+      if (age < this.GEO_MAX_STALE_MS) {
+        // Expired but not ancient — serve the stale copy now, refresh in the background.
+        if (!this.geoRefreshing) {
+          this.geoRefreshing = this.refreshGeo().finally(() => { this.geoRefreshing = null; });
+        }
+        return { live: this.geoCache.live, geo: this.geoCache.data };
+      }
+    }
+
+    // No cache yet, or it's too old to keep serving — wait for a fresh fetch.
+    if (!this.geoRefreshing) {
+      this.geoRefreshing = this.refreshGeo().finally(() => { this.geoRefreshing = null; });
+    }
+    await this.geoRefreshing;
+    return { live: this.geoCache!.live, geo: this.geoCache!.data };
   }
 
   // --- LIST CREATE / DELETE ------------------------------------------------
